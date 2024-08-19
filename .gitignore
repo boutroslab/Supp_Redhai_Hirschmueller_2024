@@ -1,0 +1,9 @@
+!*.R
+!*.Rmd
+!*.rmd
+!README.md
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
