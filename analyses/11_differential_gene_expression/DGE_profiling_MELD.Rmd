@@ -1,0 +1,164 @@
+---
+title: "Differential gene expression analysis for Ctrl and Notch KO data"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+Run differential gene expression analysis for different celltypes using `muscat`. 
+To run the differential expression analysis, we will use the "predicted" labels from MELD. I.e. only compare "truely" perturbed cells with "truely" unperturbed cells.
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(here)
+library(muscat)
+library(SingleCellExperiment)
+library(DGEvistools)
+library(patchwork)
+library(PCAtools)
+library(DESeq2)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+### Coarse Annotation
+Do the differential expression for a very coarse annotation (just 3 celltypes).
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+seurat$VFC_2 <- ifelse(seurat$VFC_2 == 0, "ctrl_like", "notch_like")
+
+# remove cells that come from pertubrbation but have label ctrl_like
+mask1 <- seurat$perturbation == "notch" & seurat$VFC_2 == "ctrl_like"
+
+# remove cells that come from ctrl but have label notch_like
+mask2 <- seurat$perturbation == "ctrl" & seurat$VFC_2 == "notch_like"
+
+# this contains no "missclassified" cells.
+sce <- as.SingleCellExperiment(seurat[, !(mask1 | mask2)])
+
+# muscat expects certain columns:
+sce$sample_id <- factor(sce$orig.ident, levels = c("TX22", "TX23", "TX22_N", "TX23_N"))
+sce$cluster_id <- "Progenitor"
+sce$group_id <- factor(sce$perturbation, levels = c("ctrl", "notch"))
+
+# prepare the sce object
+sce <- prepSCE(sce, drop = T)
+
+# number of cells per cluster-sample
+t(table(sce$cluster_id, sce$sample_id))
+
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id")
+)
+
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info
+ei$batch <- c("TX22", "TX23", "TX22", "TX23")
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("ctrl", "TX23", "notch"))
+contr <- limma::makeContrasts("notch", levels = mm) # compare notch VS ctrl
+
+res_edgeR <- pbDS(pb, design = mm, method = "edgeR", contrast = contr)
+```
+
+# save edgeR results
+```{r}
+for (celltype in names(res_edgeR$table$notch)) {
+    dir.create(here("output", "differential_expression", "pseudobulk_coarse_meld", celltype), showWarnings = F, recursive = T)
+    res_edgeR$table$notch[[celltype]] %>%
+        dplyr::select(gene, logCPM, logFC, p_adj = p_adj.loc, celltype = cluster_id) %>%
+        arrange(p_adj) %>%
+        data.table::fwrite(.,
+            file = here("output", "differential_expression", "pseudobulk_coarse_meld", celltype, "edgeR_diff_expr.tsv"), sep = "\t",
+            row.names = F
+        )
+}
+```
+
+### Granular Annotation
+Do the differential expression for a more granular annotation.
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+seurat$VFC_2 <- ifelse(seurat$VFC_2 == 0, "ctrl_like", "notch_like")
+
+# remove cells that come from pertubrbation but have label ctrl_like
+mask1 <- seurat$perturbation == "notch" & seurat$VFC_2 == "ctrl_like"
+
+# remove cells that come from ctrl but have label notch_like
+mask2 <- seurat$perturbation == "ctrl" & seurat$VFC_2 == "notch_like"
+
+# this contains no "missclassified" cells.
+sce <- as.SingleCellExperiment(seurat[, !(mask1 | mask2)])
+
+# muscat expects certain columns:
+sce$sample_id <- factor(sce$orig.ident, levels = c("TX22", "TX23", "TX22_N", "TX23_N"))
+sce$cluster_id <- sce$high_res_annotation
+sce$group_id <- factor(sce$perturbation, levels = c("ctrl", "notch"))
+
+# prepare the sce object
+sce <- prepSCE(sce, drop = T)
+
+
+# number of cells per cluster-sample
+t(table(sce$cluster_id, sce$sample_id))
+
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id")
+)
+
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info
+ei$batch <- c("TX22", "TX23", "TX22", "TX23")
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("ctrl", "TX23", "notch"))
+contr <- limma::makeContrasts("notch", levels = mm) # compare notch VS ctrl
+
+res_edgeR <- pbDS(pb, design = mm, method = "edgeR", contrast = contr)
+```
+
+# save edgeR results
+```{r}
+for (celltype in names(res_edgeR$table$notch)) {
+    dir.create(here("output", "differential_expression", "pseudobulk_granular_meld", celltype), showWarnings = F, recursive = T)
+    res_edgeR$table$notch[[celltype]] %>%
+        dplyr::select(gene, logCPM, logFC, p_adj = p_adj.loc, celltype = cluster_id) %>%
+        arrange(p_adj) %>%
+        data.table::fwrite(.,
+            file = here("output", "differential_expression", "pseudobulk_granular_meld", celltype, "edgeR_diff_expr.tsv"), sep = "\t",
+            row.names = F
+        )
+}
+```
+
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

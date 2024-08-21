@@ -1,9 +1,10 @@
-!*.R
-!*.Rmd
-!*.rmd
-!README.md
+*tsv
+*csv
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+output
 *.Rproj
+.ipynb_checkpoints
+raw_data

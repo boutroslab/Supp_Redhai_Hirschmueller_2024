@@ -1,0 +1,174 @@
+---
+title: "Estimate differentiation potenital for KO dataset"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+Estimate the differentiation potential of our cells using the approach outlined [here](https://www.nature.com/articles/ncomms15599)
+
+
+```{r load libraries}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(SCENT)
+library(biomaRt)
+library(here)
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+
+```{r}
+# load our integrated dataset
+seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated.rds"))
+
+# Downloaded the drosophila protein interaction network on the 12th of April.
+# From here: https://fgrtools.hms.harvard.edu/MIST/downloads.jsp
+#
+# Specifically this file:
+# http://fgrtools.hms.harvard.edu/downloads/MIST5_0/MIST_interaction_ppi_vs5_0-7227.txt.zip
+MIST <- data.table::fread(here("raw_data", "MIST_interaction_ppi_vs5_0-7227.txt"),
+    data.table = F
+)
+
+# filtering required:
+MIST <- MIST %>%
+    filter(TaxID_A == 7227 & TaxID_B == 7227) %>% # 7227 is Drosophila
+    filter(Rank == "high") %>% # only keep high confidence interactions
+    dplyr::select(GeneA, GeneB, Rank, contains("Exp"))
+```
+
+# Map the entrez ids to gene symbols
+```{r}
+# library(biomaRt)
+# # MIST uses entrez gene ids. we use gene names -
+# genes <- unique(c(MIST$GeneA, MIST$GeneB))
+#
+# ### Get information via BiomaRt ----
+# ensembl = useEnsembl(
+#   biomart = "genes",
+#   dataset = "dmelanogaster_gene_ensembl",
+# )
+#
+#
+# gene_attributes = c("ensembl_gene_id",
+#                     "external_gene_name",
+#                     "entrezgene_id")
+#
+# gene_lookup <- getBM(
+#   attributes = gene_attributes,
+#   values = genes,
+#   filters = "entrezgene_id",
+#   mart = ensembl
+# )
+#
+# # some entrez IDs map to several names which causes problems
+# duplicated_vector <- duplicated(gene_lookup$entrezgene_id) | duplicated(gene_lookup$entrezgene_id, fromLast = TRUE)
+# multiple_mapping <- gene_lookup[duplicated_vector,]
+#
+#
+# # remove these from the gene lookup table
+# gene_lookup <- gene_lookup[!duplicated_vector,]
+#
+# # we do not randomly select one of the mappings, but try a data driven approach. Keep the mapping with the most information, i.e. the most counts
+# multiple_mapping$n_cnts <- rowSums(tx22@assays$RNA@counts[multiple_mapping$external_gene_name,])
+#
+# # we add random noise to the n_cnts so there are no ties. This primarly happens when expression is 0 for all and then it doesnt matter anyway
+# multiple_mapping$n_cnts_noise <- multiple_mapping$n_cnts + runif(nrow(multiple_mapping))
+#
+# resolved_mapping <- multiple_mapping %>%
+#   group_by(entrezgene_id) %>%
+#   filter(n_cnts_noise == max(n_cnts_noise)) %>% # only keep entry where n_cnts is max
+#   dplyr::select(-c(n_cnts_noise, n_cnts))
+#
+# gene_lookup <- rbind(gene_lookup, resolved_mapping)
+# data.table::fwrite(gene_lookup, here("raw_data", "gene_mapping.tsv"),
+#                    sep="\t",row.names = F)
+gene_lookup <- data.table::fread(here("raw_data", "gene_mapping.tsv"))
+``` 
+
+
+```{r}
+MIST <- MIST %>%
+    left_join(., gene_lookup, by = c("GeneA" = "entrezgene_id")) %>%
+    dplyr::rename("GeneA_symbol" = "external_gene_name") %>%
+    left_join(., gene_lookup, by = c("GeneB" = "entrezgene_id")) %>%
+    dplyr::rename("GeneB_symbol" = "external_gene_name") %>%
+    dplyr::select(-contains("ensembl_gene_id")) %>%
+    na.omit()
+
+# we have to reshape the data into a square matrix. rownames/colnames are the genes and if two proteins interact
+# it should have a 1 otherwise a 0
+
+genes <- unique(c(MIST$GeneA_symbol, MIST$GeneB_symbol))
+# Create a square matrix of zeros with row and column names
+ppi <- matrix(0,
+    nrow = length(genes), ncol = length(genes),
+    dimnames = list(genes, genes)
+)
+
+# Fill in the matrix with ones where there are interactions. Could be much faster but this works fine.
+pb <- txtProgressBar(min = 0, max = nrow(MIST), initial = 0)
+for (i in 1:nrow(MIST)) {
+    setTxtProgressBar(pb, i)
+    ppi[MIST$GeneA_symbol[i], MIST$GeneB_symbol[i]] <- 1
+    ppi[MIST$GeneB_symbol[i], MIST$GeneA_symbol[i]] <- 1
+}
+# diagonal should be 0
+diag(ppi) <- 0
+```
+
+
+```{r}
+# run SCENT.
+# IMPORTANT, THERE IS A SMALL BUG WITH SCENT. 
+# THIS IS FIXED IN FORK THAT I HAVE MADE OF THE PROJECT: https://github.com/nickhir/SCENT
+ccat <- CompCCAT(
+    exp.m = seurat@assays$RNA@data,
+    ppiA.m = ppi
+)
+
+seurat@meta.data$ccat <- ccat
+saveRDS(seurat, here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+```
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

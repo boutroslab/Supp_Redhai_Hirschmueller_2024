@@ -1,0 +1,138 @@
+---
+title: "MELD Evaluation"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+always_allow_html: yes
+output:
+  html_document:
+    word_document:
+    toc: yes
+    toc_depth: '3'
+    code_folding: hide
+  pdf_document:
+    number_sections: yes
+    toc: false
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+#Introduction
+After having run the MELD python tool, we load the results back to R and create a new seurat object which contains the predicted MELD and VFC output.
+
+```{r load libraries}
+library(Seurat)
+library(SingleCellExperiment)
+library(tidyverse)
+library(data.table)
+library(patchwork)
+
+Sys.setenv(RETICULATE_PYTHON = "/g/huber/users/hirschmueller/software/miniconda3/envs/MELD_env/bin/python")
+RETICULATE_PYTHON <- "/g/huber/users/hirschmueller/software/miniconda3/envs/MELD_env/bin/python"
+library(reticulate)
+
+
+library(here)
+library(phateR)
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+### Focus on the progenitor cells
+```{r}
+integrated <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+# first, we reintegrate all progenitor cells (ISC, EB, EEP)
+progenitors <- integrated[, integrated$high_res_annotation %in% c("ISC", "EB", "EEP")]
+progenitors_split <- SplitObject(DietSeurat(progenitors, assays = "RNA"), "orig.ident")
+
+progenitors_split <- lapply(progenitors_split, function(x) {
+    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
+    x <- ScaleData(x)
+    return(x)
+})
+
+# select features that are repeatedly variable across datasets for integration
+features <- SelectIntegrationFeatures(object.list = progenitors_split)
+
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(
+    object.list = progenitors_split,
+    anchor.features = features
+)
+
+progenitors_integrated <- IntegrateData(
+    anchorset = anchors,
+    dims = 1:15
+)
+
+DefaultAssay(progenitors_integrated) <- "integrated"
+progenitors_integrated <- ScaleData(progenitors_integrated, verbose = F) %>%
+    RunPCA(., npcs = 50, verbose = F) %>%
+    RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) %>%
+    FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>%
+    FindClusters(.,
+        resolution = c(0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
+    )
+
+DefaultAssay(progenitors_integrated) <- "RNA"
+
+# load the likelihood estimates and VFC predictions.
+tx22_likelihoods <- data.table::fread(here("output", "MELD", "TX22_info_progenitors.tsv"), data.table = F) %>% tibble()
+tx23_likelihoods <- data.table::fread(here("output", "MELD", "TX23_info_progenitors.tsv"), data.table = F) %>% tibble()
+
+likelihoods <- rbind(tx22_likelihoods, tx23_likelihoods)
+
+# add the likelihood estimate and vfc prediction to the seurat object
+stopifnot(all(likelihoods$Barcode %in% progenitors_integrated@meta.data$Barcode_unique))
+
+progenitors_integrated@meta.data <- progenitors_integrated@meta.data %>%
+    left_join(likelihoods %>% dplyr::select(-orig.ident), by = c("Barcode_unique" = "Barcode"))
+
+rownames(progenitors_integrated@meta.data) <- progenitors_integrated$Barcode_unique
+saveRDS(progenitors_integrated, here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+```
+
+
+### The other celltypes
+```{r}
+integrated <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+
+# read in all the data for which we have MELD prediction
+files <- list.files(here::here("output", "MELD"), pattern = "_info_", full.names = T)
+
+meld_res <- lapply(files, function(x){
+    # skip progenitors, they are included in ISC and EB (and part of EE)
+    if(grepl("progenitors",x)){
+        return()
+    }
+    fread(x, data.table=F)
+}) %>% bind_rows()
+
+# add them to the seurat obj
+all(meld_res$Barcode %in% Cells(integrated))
+integrated@meta.data <- integrated@meta.data %>%
+    left_join(meld_res %>% dplyr::select(-orig.ident), by = c("Barcode_unique" = "Barcode"))
+rownames(integrated@meta.data) <- integrated$Barcode_unique
+
+# the problem is, that dECs are missing (because they dont exist for Notch)
+# this makes the dataset unsuitable for trajectory inference. 
+saveRDS(integrated, here("output", "Ctrl_NotchKO_per_celltype_res_meld.rds"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
