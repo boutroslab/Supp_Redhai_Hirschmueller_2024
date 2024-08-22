@@ -135,7 +135,6 @@ saveRDS(ctrl, here("output", "ctrlRNAi_seurat_integrated_annotated_high_res.rds"
 ```
 
 
-
 ```{r}
 sessionInfo()
 ```

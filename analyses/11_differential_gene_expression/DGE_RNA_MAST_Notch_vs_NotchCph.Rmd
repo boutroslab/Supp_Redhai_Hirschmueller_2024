@@ -17,6 +17,8 @@ set.seed(123)
 Use linear mixed model to do differential gene expression for the conditions, for which we only have a single replicate. 
 We follow the approach described by [Zimmerman et al](https://www.nature.com/articles/s41467-021-21038-1).
 
+Here we are interested in running the comparision NotchRNAi vs NotchRNAi+CphRNAi.
+
 ```{r}
 library(Seurat)
 library(tidyverse)
@@ -79,6 +81,10 @@ sca <- SceToSingleCellAssay(sce, class = "SingleCellAssay")
 # How to run must was extracted from here:
 # https://www.sc-best-practices.org/conditions/differential_gene_expression.html#id21
 # and here https://github.com/kdzimm/PseudoreplicationPaper/blob/c3059a3b361e89bde595f222757d04b89f77eb62/Type_1_Error/Type%201%20-%20MAST%20RE.Rmd
+
+# here we are only interested in progenitor cells
+sce <- sce[, sce$tmp_celltype == "Progenitor"]
+
 MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltype)), function(celltype) {
     print(celltype)
     all_conditions <- setdiff(unique(sce$perturbation), "ctrl")
@@ -90,7 +96,7 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     tmp_sca <- tmp_sca[geneFilter, ]
 
     tmp_sca$perturbation <- factor(tmp_sca$perturbation)
-    tmp_sca$perturbation <- relevel(tmp_sca$perturbation, "ctrl")
+    tmp_sca$perturbation <- relevel(tmp_sca$perturbation, "NotchCphRNAi") # we want to compare to NotchCphRNAi not control!
 
     tmp_sca$batch <- factor(substr(tmp_sca$orig.ident.unique, 1, 4))
     tmp_sca$orig.ident.unique <- factor(tmp_sca$orig.ident.unique)
@@ -113,10 +119,10 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     )
 
     per_condition_res <- lapply(setNames(all_conditions, all_conditions), function(condition) {
-        print(condition)
-        if (celltype == "EE" & condition == "NotchCphRNAi") {
-            return(NULL)
+        if(condition != "NotchRNAi"){
+            return()
         }
+        print(condition)
         summaryCond <- MAST::summary(zlmCond, doLRT = paste0("perturbation", condition))
         summaryDt <- summaryCond$datatable
         result <- merge(summaryDt[contrast == paste0("perturbation", condition) & component == "H", .(primerid, `Pr(>Chisq)`)], # hurdle P values
@@ -133,9 +139,7 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     })
     return(per_condition_res)
 })
-saveRDS(MAST_results, here("output", "differential_expression", "MAST", "MAST_res_coarse.rds"))
-
-
+saveRDS(MAST_results, here("output", "differential_expression", "MAST", "MAST_Progenitor_NotchRNAi_vs_NotchCphRNAi.rds"))
 ```
 
 
@@ -435,6 +439,7 @@ for (celltype in names(MAST_results)) {
     }
 }
 ```
+
 
 
 ```{r}

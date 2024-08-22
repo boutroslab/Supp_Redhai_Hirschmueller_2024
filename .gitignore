@@ -8,3 +8,4 @@ output
 *.Rproj
 .ipynb_checkpoints
 raw_data
+plots

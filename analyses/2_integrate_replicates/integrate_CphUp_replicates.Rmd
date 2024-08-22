@@ -1,0 +1,120 @@
+---
+title: "Integration of the Cph overexpressing replicates"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r load libraries}
+library(here)
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+
+# load custom functions
+source(here("plot_theme.R"))
+```
+
+
+## Introduction
+After quality control (see 1_preprocessing) we integrate the 2 CphUp replicates using Seurat. 
+
+```{r}
+options(warn = 1)
+
+# read in the QCed sc experiment (see 1_preprocessing for creation)
+CphUp <- readRDS(here("output", "CphUp_qced.rds"))
+
+# From now on we will use Seurat. We will still remove the low quality 
+# cells that were removed during preprocessing (see 1_preprocessing)
+sample_ids <- c("TX47", "TX49")
+file_names <- c("DS-0024B", "DS-00245")
+
+
+CphUp_split <- lapply(setNames(seq_along(file_names),sample_ids), function(index){
+  file <- file_names[index]
+  sample <- sample_ids[index]
+  print(sample)
+  sce_tmp <- CphUp[[sample]]
+  tmp <- Read10X(data.dir = here("raw_data", "CphUp", file, "raw_feature_bc_matrix"))
+  
+  # we already know which cells to remove because we have done the preprocessing before. 
+  # So remove them here:
+  tmp <- tmp[,colnames(tmp) %in% sce_tmp$Barcode]
+
+  seurat_o <- CreateSeuratObject(counts = tmp, 
+                                 project = sample, 
+                                 min.cells = 0, 
+                                 min.features = 0)
+  
+  seurat_o <- NormalizeData(seurat_o, normalization.method = "LogNormalize", scale.factor = 10000) %>% 
+    FindVariableFeatures(., selection.method = "vst", nfeatures = 3000) %>% 
+    ScaleData(.) %>% 
+    RunPCA(., npcs = 50, verbose = F) %>% 
+    RunUMAP(., reduction = "pca", dims = 1:20, verbose = F)  
+    
+
+  # add some metadata about the number of detected cells and so on
+  seurat_o@meta.data$Sample <- sce_tmp$Sample
+  seurat_o@meta.data$Barcode <- sce_tmp$Barcode
+  seurat_o@meta.data$sum <- sce_tmp$sum
+  seurat_o@meta.data$detected <- sce_tmp$detected
+  seurat_o@meta.data$Mito_pct <- sce_tmp$subsets_Mito_percent
+  seurat_o@meta.data$Mito_sum <- sce_tmp$subsets_Mito_sum
+  seurat_o@meta.data$Mito_detected <- sce_tmp$subsets_Mito_detected
+  seurat_o@meta.data$sizeFactor <- sce_tmp$sizeFactor
+  return(seurat_o)
+})
+
+
+# add the experiment to cellname
+CphUp_split <- lapply(setNames(names(CphUp_split),names(CphUp_split)), function(x){
+  tmp <- CphUp_split[[x]]
+  tmp <- RenameCells(tmp, add.cell.id = x)
+})
+```
+
+
+## Integrate the 2 replicates
+```{r}
+features <- SelectIntegrationFeatures(object.list = CphUp_split)
+
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(object.list = CphUp_split,
+                                  anchor.features = features)
+
+CphUp_integrated <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(CphUp_integrated) <- "integrated"
+CphUp_integrated <- ScaleData(CphUp_integrated) %>% 
+  RunPCA(., npcs = 50, verbose = F) %>% 
+  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, return.model = TRUE) %>% 
+  FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>% 
+  FindClusters(., 
+               resolution = c(0.3, 0.5, 0.7, 1)) 
+DefaultAssay(CphUp_integrated) <- "RNA"
+saveRDS(CphUp_integrated, here("output", "CphUp_seurat_integrated.rds"))
+```
+
+
+# Make some diagnostic plots
+```{r}
+DimPlot(CphUp_integrated, group.by = "orig.ident")+
+  small_axis("UMAP")+
+  ggtitle("Integrated")
+```
+
+```{r}
+sessionInfo()
+```
+
+
+
+
