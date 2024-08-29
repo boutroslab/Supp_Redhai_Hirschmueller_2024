@@ -157,8 +157,8 @@ seurat_naive_integration[["phate"]] <- CreateDimReducObject(
 DefaultAssay(seurat_naive_integration) <- "integrated"
 
 # this setting works a bit better
-seurat_naive_integration <- seurat_naive_integration %>% 
-    ScaleData(., verbose = F) %>% 
+seurat_naive_integration <- seurat_naive_integration %>%
+    ScaleData(., verbose = F) %>%
     RunPCA(., npcs = 50, verbose = F) %>%
     RunUMAP(., reduction = "pca", dims = 1:20, verbose = F, min.dist = 0.6)
 

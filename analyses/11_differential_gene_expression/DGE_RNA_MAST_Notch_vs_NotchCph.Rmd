@@ -119,7 +119,7 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     )
 
     per_condition_res <- lapply(setNames(all_conditions, all_conditions), function(condition) {
-        if(condition != "NotchRNAi"){
+        if (condition != "NotchRNAi") {
             return()
         }
         print(condition)
@@ -191,7 +191,7 @@ seurat <- seurat[, !seurat$celltype_manual %in% c("unk", "unk2", "MT", "dEC", "d
 
 # we combine ISC and EEPs to progenitor population
 seurat <- seurat[, seurat$high_res_annotation %in% c("ISC", "EEP")]
-seurat$tmp_celltype = "Progenitor_ISC_EEP"
+seurat$tmp_celltype <- "Progenitor_ISC_EEP"
 
 
 sce <- as.SingleCellExperiment(seurat)
@@ -209,23 +209,23 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     print(celltype)
     all_conditions <- setdiff(unique(sce$perturbation), "ctrl")
     tmp_sca <- sca[, sca$tmp_celltype == celltype]
-    
+
     geneFilter <- freq(tmp_sca) > 0.1
     print(str_interp("MAST will be run for ${sum(geneFilter)} genes"))
-    
+
     tmp_sca <- tmp_sca[geneFilter, ]
-    
+
     tmp_sca$perturbation <- factor(tmp_sca$perturbation)
     tmp_sca$perturbation <- relevel(tmp_sca$perturbation, "NotchCphRNAi") # we want to compare to NotchCphRNAi not control!
-    
+
     tmp_sca$batch <- factor(substr(tmp_sca$orig.ident.unique, 1, 4))
     tmp_sca$orig.ident.unique <- factor(tmp_sca$orig.ident.unique)
-    
+
     # calculate how many genes are "on", i.e. expressed.
     cdr2 <- colSums(assay(tmp_sca) > 0)
     colData(tmp_sca)$ngeneson <- scale(cdr2)
-    
-    
+
+
     # Differential expression analysis with random effects.
     formula <- ~ ngeneson + batch + perturbation + (1 | orig.ident.unique)
     zlmCond <- zlm(
@@ -237,19 +237,19 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
         strictConvergence = F,
         fitArgsD = list(nAGQ = 0)
     )
-    
+
     per_condition_res <- lapply(setNames(all_conditions, all_conditions), function(condition) {
-        if(condition != "NotchRNAi"){
+        if (condition != "NotchRNAi") {
             return()
         }
         print(condition)
         summaryCond <- MAST::summary(zlmCond, doLRT = paste0("perturbation", condition))
         summaryDt <- summaryCond$datatable
         result <- merge(summaryDt[contrast == paste0("perturbation", condition) & component == "H", .(primerid, `Pr(>Chisq)`)], # hurdle P values
-                        summaryDt[contrast == paste0("perturbation", condition) & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
-                        by = "primerid"
+            summaryDt[contrast == paste0("perturbation", condition) & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+            by = "primerid"
         ) # logFC coefficients
-        
+
         # do multiple testing correction
         result[, FDR := p.adjust(`Pr(>Chisq)`, "fdr")]
         result <- data.frame(result) %>%

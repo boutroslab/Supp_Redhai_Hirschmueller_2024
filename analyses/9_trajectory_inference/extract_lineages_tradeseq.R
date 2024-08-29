@@ -57,12 +57,12 @@ extract_plot_data <- function(gene) {
     )
 
 
-    # WE WILL JUST USE LOESS REGRESSION 
+    # WE WILL JUST USE LOESS REGRESSION
     # combs <- paste0("Lineage ", seq_len(nLineages), "_")
     # combs_list <- lapply(combs, function(lin) paste0(lin, levels(conditions)))
     # combs <- do.call("c", combs_list)
     # df$lineage <- factor(df$lineage, levels = combs)
-    # 
+    #
     # df_curves <- mclapply(seq_len(nLineages), function(jj) {
     #     tmp <- lapply(seq_len(nConditions), function(kk) {
     #         df <- tradeSeq:::.getPredictRangeDf(dm,
@@ -76,13 +76,13 @@ extract_plot_data <- function(gene) {
     #             conditions = conditions
     #         )
     #         yhat <- c(exp(t(Xdf %*% t(beta)) + df$offset))
-    # 
+    #
     #         df_curves <- data.frame(
     #             "time" = df[, paste0("t", jj)],
     #             "gene_count" = yhat,
     #             "lineage" = as.character(combs_list[[jj]][[kk]])
     #         )
-    # 
+    #
     #         return(df_curves)
     #     })
     #     names(tmp) <- c("ctrl", "notch")
@@ -99,7 +99,3 @@ extract_plot_data <- function(gene) {
 all_genes <- rownames(gam_fit_6)
 res <- pbmclapply(setNames(all_genes, all_genes), extract_plot_data, mc.cores = 20)
 saveRDS(res, here("output", "plotSmoothers_data.rds"))
-
-
-
-

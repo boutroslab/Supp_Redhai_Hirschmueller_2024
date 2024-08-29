@@ -42,14 +42,12 @@ ctrl <- integrated[, integrated$perturbation == "ctrl"]
 notch <- integrated[, integrated$perturbation == "notch"]
 
 ctrl$tmp_celltype <- factor(ctrl$tmp_celltype,
-    levels = c("ISC", "EEP","EB", "dEC", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT", "unk")
+    levels = c("ISC", "EEP", "EB", "dEC", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT", "unk")
 )
 
 notch$tmp_celltype <- factor(notch$tmp_celltype,
-    levels = c("ISC", "EEP","EB", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT", "unk")
+    levels = c("ISC", "EEP", "EB", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT", "unk")
 )
-
-
 ```
 
 ### Create the plot
@@ -72,15 +70,18 @@ legend <- ggpubr::get_legend(ctrl_umap) %>%
 
 
 # here we create the actual plots
-ctrl_umap <- new_dimplot(ctrl, feature = "tmp_celltype", size=0.05,
-               shape=19,
-               stroke=0.25)+
-    scale_color_manual(values = c(ISC, EEP, EB, dEC, daEC, aEC, mEC, Copper, LFC, pEC, EE, MT, unk))+
+ctrl_umap <- new_dimplot(ctrl,
+    feature = "tmp_celltype", size = 0.05,
+    shape = 19,
+    stroke = 0.25
+) +
+    scale_color_manual(values = c(ISC, EEP, EB, dEC, daEC, aEC, mEC, Copper, LFC, pEC, EE, MT, unk)) +
     small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
     ggtitle("Control") +
     theme(
         plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
-        legend.position = "none") +
+        legend.position = "none"
+    ) +
     scale_y_reverse() +
     scale_x_reverse()
 
@@ -89,17 +90,19 @@ ctrl_umap <- new_dimplot(ctrl, feature = "tmp_celltype", size=0.05,
 ##############
 # PLOT NOTCH #
 ##############
-notch_umap <- new_dimplot(notch, feature = "tmp_celltype",size=0.05,
-               shape=19,
-               stroke=0.25)+
-    scale_color_manual(values = c(ISC, EEP,EB, daEC, aEC, mEC, Copper, LFC, pEC, EE, MT, unk))+
+notch_umap <- new_dimplot(notch,
+    feature = "tmp_celltype", size = 0.05,
+    shape = 19,
+    stroke = 0.25
+) +
+    scale_color_manual(values = c(ISC, EEP, EB, daEC, aEC, mEC, Copper, LFC, pEC, EE, MT, unk)) +
     small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
     ggtitle("Notch-deficient") +
     theme(
         plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
         legend.position = "none"
     ) +
-    scale_y_reverse()+
+    scale_y_reverse() +
     scale_x_reverse()
 
 
@@ -116,12 +119,11 @@ combined_plots <- wrap_plots(ctrl_umap + NoLegend(),
 combined_plots %>%
     ggsave(
         plot = .,
-        file = here("plots", "main","Fig1_UMAPs.pdf"),
+        file = here("plots", "main", "Fig1_UMAPs.pdf"),
         width = 6.2,
         height = 3.3,
         units = "in",
     )
-
 ```
 
 ```{r}

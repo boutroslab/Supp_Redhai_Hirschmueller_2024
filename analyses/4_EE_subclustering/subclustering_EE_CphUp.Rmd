@@ -29,13 +29,12 @@ source(here("helper_functions.R"))
 ```
 
 ```{r}
-# load the annotated seurat object 
+# load the annotated seurat object
 CphUp <- readRDS(here("output", "CphUp_seurat_integrated_annotated.rds"))
 
 # select EE cells
 DefaultAssay(CphUp) <- "RNA"
-EE_CphUp <- DietSeurat(CphUp, assays = "RNA")[,CphUp$celltype_manual=="EE"]
-
+EE_CphUp <- DietSeurat(CphUp, assays = "RNA")[, CphUp$celltype_manual == "EE"]
 ```
 
 ```{r}

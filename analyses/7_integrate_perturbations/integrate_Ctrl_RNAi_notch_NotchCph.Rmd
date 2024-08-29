@@ -21,7 +21,7 @@ library(patchwork)
 
 # we need this to run phate. this is completely optional and not actually used in the paper (but in the shiny app)
 Sys.setenv(RETICULATE_PYTHON = "/g/huber/users/hirschmueller/software/miniconda3/bin/python")
-RETICULATE_PYTHON="/g/huber/users/hirschmueller/software/miniconda3/bin/python"
+RETICULATE_PYTHON <- "/g/huber/users/hirschmueller/software/miniconda3/bin/python"
 library(reticulate)
 library(phateR)
 
@@ -39,7 +39,6 @@ Integrate the different perturbations using Seurat.
 ctrl <- readRDS(here("output", "ctrlRNAi_seurat_integrated_annotated_high_res_cellcycle.rds"))
 ctrl$orig.ident.unique <- paste(ctrl$orig.ident, "ctrl", sep = "_")
 ctrl <- RenameCells(ctrl, add.cell.id = "ctrl")
-ctrl@meta.data$high_res_annotation <- ctrl$celltype_manual
 
 
 NotchRNAi <- readRDS(here("output", "notchRNAi_seurat_TX47_annotated_high_res_cellcycle.rds"))
@@ -125,7 +124,11 @@ combined_list <- c(
 )
 
 # check that ALL barcode are unique
-stopifnot(sapply(combined_list, function(x){Cells(x)}) %>% length() == sapply(combined_list, function(x){Cells(x)}) %>% n_distinct())
+stopifnot(sapply(combined_list, function(x) {
+    Cells(x)
+}) %>% length() == sapply(combined_list, function(x) {
+    Cells(x)
+}) %>% n_distinct())
 
 # select features that are repeatedly variable across datasets for integration
 features <- SelectIntegrationFeatures(object.list = combined_list)
@@ -176,7 +179,7 @@ seurat_naive_integration[["phate"]] <- CreateDimReducObject(
 
 # now remove the KO samples because they were only used to "guide" the integration.
 
-seurat_wo_KO <- seurat_naive_integration[,!grepl("3prime", seurat_naive_integration$orig.ident.unique)]
+seurat_wo_KO <- seurat_naive_integration[, !grepl("3prime", seurat_naive_integration$orig.ident.unique)]
 
 saveRDS(seurat_wo_KO, here("output", "Ctrl_Notch_NotchCphRNAi_integrated.rds"))
 ```

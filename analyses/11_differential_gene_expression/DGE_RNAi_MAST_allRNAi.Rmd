@@ -134,8 +134,6 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     return(per_condition_res)
 })
 saveRDS(MAST_results, here("output", "differential_expression", "MAST", "MAST_res_coarse_all.rds"))
-
-
 ```
 
 

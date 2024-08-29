@@ -134,7 +134,7 @@ diag(ppi) <- 0
 
 ```{r}
 # run SCENT.
-# IMPORTANT, THERE IS A SMALL BUG WITH SCENT. 
+# IMPORTANT, THERE IS A SMALL BUG WITH SCENT.
 # THIS IS FIXED IN FORK THAT I HAVE MADE OF THE PROJECT: https://github.com/nickhir/SCENT
 ccat <- CompCCAT(
     exp.m = seurat@assays$RNA@data,

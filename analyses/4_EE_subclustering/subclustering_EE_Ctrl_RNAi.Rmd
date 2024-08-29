@@ -114,7 +114,6 @@ DimPlot(EE_ctrl_integrated,
     group.by = "EE_subtype",
     label = T, reduction = "umap"
 )
-
 ```
 
 ### Now add this information back to the "whole" seurat object

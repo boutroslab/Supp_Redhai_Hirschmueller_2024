@@ -26,21 +26,11 @@ source(here("helper_functions.R"))
 
 
 ## Introduction
-Plot sff expression in  ISCs and EEP and split by perturbation status
 
 ```{r}
 progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
 
-# remove cells that come from pertubrbation but have label ctrl_like
-mask1 <- progenitors$perturbation == "notch" & progenitors$VFC_2 == "ctrl_like"
-
-# remove cells that come from ctrl but have label notch_like
-mask2 <- progenitors$perturbation == "ctrl" & progenitors$VFC_2 == "notch_like"
-
-progenitors <- progenitors[, !(mask1 | mask2)]
-progenitors@meta.data$perturbation <- ifelse(progenitors$perturbation == "ctrl", "Control", "perturbed Notch KO")
-
-progenitors <- progenitors[,progenitors$high_res_annotation %in% c("ISC", "EEP")]
+progenitors <- progenitors[, progenitors$high_res_annotation %in% c("ISC", "EEP")]
 
 progenitors$high_res_annotation <- factor(progenitors$high_res_annotation,
     levels =
@@ -51,21 +41,23 @@ progenitors$high_res_annotation <- factor(progenitors$high_res_annotation,
 annotation_df <- data.frame(
     perturbation = c("a", "b"),
     y_position_ = c(3.2, 3.2), # Adjust as needed
-    xmin_ = c(0.78, 1.78  ),
-    xmax_ = c(1.225, 2.225 ),
+    xmin_ = c(0.78, 1.78),
+    xmax_ = c(1.225, 2.225),
     label = "***"
 )
 
 p <- FetchData(progenitors, c("sff", "high_res_annotation", "perturbation")) %>%
     rownames_to_column("id") %>%
     pivot_longer(-c(id, high_res_annotation, perturbation)) %>%
-    mutate(dummy=ifelse(perturbation == "perturbed Notch KO", "Z","X")) %>% 
-    ggplot(., aes(x = high_res_annotation, y = value))  +
-    geom_point(size = 0.65, stroke = 0.4, shape = 21, mapping=aes(color = perturbation, fill = perturbation),
-               position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.87)) +
+    mutate(dummy = ifelse(perturbation == "perturbed Notch KO", "Z", "X")) %>%
+    ggplot(., aes(x = high_res_annotation, y = value)) +
+    geom_point(
+        size = 0.65, stroke = 0.4, shape = 21, mapping = aes(color = perturbation, fill = perturbation),
+        position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.87)
+    ) +
     geom_violin(
         mapping = aes(color = dummy),
-        adjust = 1, trim = TRUE, scale = "width", show.legend = F, fill=NA,
+        adjust = 1, trim = TRUE, scale = "width", show.legend = F, fill = NA,
     ) +
     theme_Publication() +
     theme(legend.title = element_text(size = 12)) +
@@ -76,7 +68,7 @@ p <- FetchData(progenitors, c("sff", "high_res_annotation", "perturbation")) %>%
     ) +
     ylab("Expression\n(logcounts)") +
     xlab("Celltype") +
-    scale_color_manual(values = c(color_mapping[1], color_mapping[4], "black","black"), breaks = c("Control","perturbed Notch KO")) +
+    scale_color_manual(values = c(color_mapping[1], color_mapping[4], "black", "black"), breaks = c("Control", "perturbed Notch KO")) +
     scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4]), 0.3)) +
     ggtitle("sff") +
     guides(color = guide_legend(override.aes = list(size = 2, stroke = 0, shape = 16))) + # Custom legend
@@ -95,6 +87,5 @@ ggsave(
     units = "in",
     scale = 1.4
 )
-
 ```
 

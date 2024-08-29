@@ -96,11 +96,10 @@ phase_distribution <- ctrl@meta.data %>%
 ggplot(phase_distribution, aes(x = Phase, y = fraction, fill = Phase)) +
     geom_col() +
     facet_wrap(~celltype_manual) +
-    chameleon::scale_fill_chameleon()+
+    chameleon::scale_fill_chameleon() +
     theme_Publication() %+%
     theme(legend.position = "none") +
     ylab("Fraction of cells")
-
 ```
 
 

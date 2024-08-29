@@ -56,7 +56,7 @@ merged_object <- NormalizeData(merged_object, normalization.method = "LogNormali
     FindVariableFeatures(., selection.method = "vst", nfeatures = 3000) %>%
     ScaleData(.) %>%
     RunPCA(., npcs = 30, verbose = F) %>%
-    RunUMAP(., reduction = "pca", dims = 1:20, verbose = F) 
+    RunUMAP(., reduction = "pca", dims = 1:20, verbose = F)
 ```
 
 
@@ -95,19 +95,19 @@ tx23 <- run_seurat_steps(tx23, include_leiden = F, include_tsne = F)
 ####################
 Embeddings(tx22, "pca")[, 1:20] %>%
     data.frame() %>%
-    rownames_to_column("cell_barcode") %>% 
+    rownames_to_column("cell_barcode") %>%
     fwrite(., here("output", "MELD", "pca_data_tx22.tsv"),
-    sep = "\t",
-    row.names = F
-)
+        sep = "\t",
+        row.names = F
+    )
 
 tx22@meta.data %>%
     data.frame() %>%
-    rownames_to_column("cell_barcode") %>% 
+    rownames_to_column("cell_barcode") %>%
     fwrite(., here("output", "MELD", "mdata_tx22.tsv"),
-    sep = "\t",
-    row.names = F
-)
+        sep = "\t",
+        row.names = F
+    )
 
 tx22@assays$RNA@data %>%
     t() %>%
@@ -127,15 +127,15 @@ tx22@assays$RNA@counts %>%
 ####################
 Embeddings(tx23, "pca")[, 1:20] %>%
     data.frame() %>%
-    rownames_to_column("cell_barcode") %>% 
+    rownames_to_column("cell_barcode") %>%
     fwrite(., here("output", "MELD", "pca_data_tx23.tsv"),
-    sep = "\t",
-    row.names = F
-)
+        sep = "\t",
+        row.names = F
+    )
 
 tx23@meta.data %>%
     data.frame() %>%
-    rownames_to_column("cell_barcode") %>% 
+    rownames_to_column("cell_barcode") %>%
     fwrite(., here("output", "MELD", "mdata_tx23.tsv"),
         sep = "\t",
         row.names = F

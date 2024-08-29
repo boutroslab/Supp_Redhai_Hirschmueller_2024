@@ -30,14 +30,14 @@ source(here("helper_functions.R"))
 ```
 
 ```{r}
-# load the annotated seurat object 
+# load the annotated seurat object
 notch_cph <- readRDS(here("output", "NotchCphRNAi_seurat_TX49_rep1_annotated.rds"))
 
 # select EE cells
 DefaultAssay(notch_cph) <- "RNA"
 
 # in this case, reclustering doesnt make sense because its just 11 cells.
-EE_notch_cph <- notch_cph[,notch_cph$celltype_manual=="EE"]
+EE_notch_cph <- notch_cph[, notch_cph$celltype_manual == "EE"]
 
 dim(EE_notch_cph)
 ```

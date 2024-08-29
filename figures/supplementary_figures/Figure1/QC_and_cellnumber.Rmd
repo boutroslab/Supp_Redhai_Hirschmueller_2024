@@ -35,30 +35,31 @@ Highlight the batch effects for our data.
 ########
 ctrl <- readRDS(here("output", "ctrlKO_seurat_integrated_annotated_high_res.rds"))
 ctrl <- SplitObject(ctrl, split.by = "orig.ident")
-ctrl_merged <-merge(ctrl$TX22, y = ctrl$TX23)
-ctrl_merged <- run_seurat_steps(ctrl_merged) %>% 
+ctrl_merged <- merge(ctrl$TX22, y = ctrl$TX23)
+ctrl_merged <- run_seurat_steps(ctrl_merged) %>%
     RunUMAP(.,
-            reduction = "pca",
-            dims = 1:20,
-            min.dist = 0.5,
-            n.neighbors = 45,
-            seed.use = 1,
-            verbose=FALSE)
+        reduction = "pca",
+        dims = 1:20,
+        min.dist = 0.5,
+        n.neighbors = 45,
+        seed.use = 1,
+        verbose = FALSE
+    )
 
 
 
 
-ctrl_umap <- new_dimplot(ctrl_merged, 
-            feature = "orig.ident",
-            size=0.05,
-            shape=19,
-            stroke=0.4
-            )+
-    scale_color_manual(values= c("#1492D5", "#a50f15"))+
+ctrl_umap <- new_dimplot(ctrl_merged,
+    feature = "orig.ident",
+    size = 0.05,
+    shape = 19,
+    stroke = 0.4
+) +
+    scale_color_manual(values = c("#1492D5", "#a50f15")) +
     small_axis("UMAP ", arrow_length = 21) +
-    theme(legend.title = element_blank())+
-    guides(color = guide_legend(override.aes = list(size = 1.3)))+
-    ggtitle("Ctrl")+
+    theme(legend.title = element_blank()) +
+    guides(color = guide_legend(override.aes = list(size = 1.3))) +
+    ggtitle("Ctrl") +
     scale_x_reverse()
 
 
@@ -67,41 +68,43 @@ ctrl_umap <- new_dimplot(ctrl_merged,
 #########
 notch <- readRDS(here("output", "notchKO_seurat_integrated_annotated_high_res.rds"))
 notch <- SplitObject(notch, split.by = "orig.ident")
-notch_merged <-merge(notch$TX22, y = notch$TX23)
-notch_merged <- run_seurat_steps(notch_merged) %>% 
+notch_merged <- merge(notch$TX22, y = notch$TX23)
+notch_merged <- run_seurat_steps(notch_merged) %>%
     RunUMAP(.,
-            reduction = "pca",
-            dims = 1:20,
-            min.dist = 0.5,
-            n.neighbors = 45,
-            seed.use = 1,
-            verbose=FALSE)
+        reduction = "pca",
+        dims = 1:20,
+        min.dist = 0.5,
+        n.neighbors = 45,
+        seed.use = 1,
+        verbose = FALSE
+    )
 
 notch_merged@meta.data$orig.ident <- str_remove_all(notch_merged$orig.ident, "_N")
 
-notch_umap <- new_dimplot(notch_merged, 
-            feature = "orig.ident",
-            size=0.05,
-            shape=19,
-            stroke=0.4
-            )+
-    scale_color_manual(values= c("#1492D5", "#a50f15"))+
+notch_umap <- new_dimplot(notch_merged,
+    feature = "orig.ident",
+    size = 0.05,
+    shape = 19,
+    stroke = 0.4
+) +
+    scale_color_manual(values = c("#1492D5", "#a50f15")) +
     small_axis("UMAP ", arrow_length = 21) +
-    theme(legend.title = element_blank())+
-    guides(color = guide_legend(override.aes = list(size = 1.3)))+
-    ggtitle("Notch KO")+
-    scale_y_reverse()+
+    theme(legend.title = element_blank()) +
+    guides(color = guide_legend(override.aes = list(size = 1.3))) +
+    ggtitle("Notch KO") +
+    scale_y_reverse() +
     scale_x_reverse()
 
 
 # combine plots
-plot <- wrap_plots(ctrl_umap, notch_umap, ncol = 2) + 
+plot <- wrap_plots(ctrl_umap, notch_umap, ncol = 2) +
     plot_layout(guides = "collect")
 
 
 ggsave(plot,
-       filename=here("plots","sup","Fig1_Batch_UMAPs.pdf"),
-       width=8, height=4.5)
+    filename = here("plots", "sup", "Fig1_Batch_UMAPs.pdf"),
+    width = 8, height = 4.5
+)
 ```
 
 
@@ -200,7 +203,7 @@ reads_per_cell <- FetchData(seurat, c("nCount_RNA", "perturbation")) %>%
 plots <- wrap_plots(genes_per_cell, reads_per_cell, ncol = 2)
 
 ggsave(
-     filename=here("plots","sup","Fig1_number_UMIs_genes.pdf"),
+    filename = here("plots", "sup", "Fig1_number_UMIs_genes.pdf"),
     plot = plots,
     width = 9,
     height = 4
@@ -263,11 +266,11 @@ p <- ggplot(df, aes(dataset, cells, fill = dataset)) +
     ) +
     scale_fill_manual(values = c("darkgrey", "darkgrey", color_mapping[1], color_mapping[4])) +
     ylab("Number of cells") +
-    scale_y_continuous(limits = c(0, 17000), expand = expansion(mult = c(0,0.05)))
+    scale_y_continuous(limits = c(0, 17000), expand = expansion(mult = c(0, 0.05)))
 
 ggsave(
     plot = p,
-     filename=here("plots","sup","Fig1_cell_number.pdf"),
+    filename = here("plots", "sup", "Fig1_cell_number.pdf"),
     width = 7, height = 5.02, units = "in"
 )
 ```

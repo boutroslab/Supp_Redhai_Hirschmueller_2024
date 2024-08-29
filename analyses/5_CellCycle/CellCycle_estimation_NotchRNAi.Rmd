@@ -78,7 +78,6 @@ ggplot(phase_distribution, aes(x = Phase, y = fraction, fill = Phase)) +
     theme_Publication() %+%
     theme(legend.position = "none") +
     ylab("Fraction of cells")
-
 ```
 
 

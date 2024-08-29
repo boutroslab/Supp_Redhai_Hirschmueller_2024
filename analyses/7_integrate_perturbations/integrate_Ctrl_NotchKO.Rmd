@@ -21,7 +21,7 @@ library(patchwork)
 
 # we need this to run phate. this is completely optional and not actually used in the paper (but in the shiny app)
 Sys.setenv(RETICULATE_PYTHON = "/g/huber/users/hirschmueller/software/miniconda3/bin/python")
-RETICULATE_PYTHON="/g/huber/users/hirschmueller/software/miniconda3/bin/python"
+RETICULATE_PYTHON <- "/g/huber/users/hirschmueller/software/miniconda3/bin/python"
 library(reticulate)
 library(phateR)
 

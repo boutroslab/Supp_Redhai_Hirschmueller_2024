@@ -73,7 +73,6 @@ EE_ctrl_integrated <- RunUMAP(EE_ctrl_integrated,
     n.neighbors = 5,
     seed.use = 1
 )
-
 ```
 
 
@@ -125,74 +124,88 @@ EE_notch_integrated <- RunUMAP(EE_notch_integrated,
 # Create the plots
 
 ```{r}
-EE_ctrl_integrated@meta.data$high_res_annotation <- factor(EE_ctrl_integrated$high_res_annotation,  levels=c("EEP","AstC-EE", "Tk-EE", "classIII-EE"))
-ctrl_umap <- new_dimplot(EE_ctrl_integrated, feature = "high_res_annotation",size=0.6,
-               shape=19,
-               stroke=0.25)+
-    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
-    ggtitle("Control") +
-    theme(
-        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
-    ) + 
-    chameleon::scale_color_chameleon()
-    
-
-EE_notch_integrated@meta.data$high_res_annotation <- factor(EE_notch_integrated$high_res_annotation,  levels=c("EEP","AstC-EE", "Tk-EE", "classIII-EE"))
-notch_umap <- new_dimplot(EE_notch_integrated, feature = "high_res_annotation",size=0.6,
-               shape=19,
-               stroke=0.25)+
-    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
-    ggtitle("Notch-deficient") +
-    theme(
-        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
-    ) + 
-    chameleon::scale_color_chameleon()
-
-
-umaps_ee <- ctrl_umap+notch_umap+ plot_layout(guides = "collect")
-ggsave(plot = umaps_ee,
-   width = 6, 
-   height = 3,
-   filename= here("plots", "main", "Fig2_EE_UMAPs.pdf"),
-   scale=1.5)
-
-
-
-
-max_expression <- rbind(FetchData(EE_ctrl_integrated, "CG9650"), FetchData(EE_notch_integrated, "CG9650"))[,1] %>% max()
-ctrl_cph_expression <- new_dimplot(EE_ctrl_integrated, feature = "CG9650",size=0.6,
-               shape=19,
-               stroke=0.25)+
+EE_ctrl_integrated@meta.data$high_res_annotation <- factor(EE_ctrl_integrated$high_res_annotation, levels = c("EEP", "AstC-EE", "Tk-EE", "classIII-EE"))
+ctrl_umap <- new_dimplot(EE_ctrl_integrated,
+    feature = "high_res_annotation", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
     small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
     ggtitle("Control") +
     theme(
         plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
     ) +
-    scale_color_gradient(low="lightgrey", high = "darkred", 
-                         limits = c(0,max_expression), 
-                         name = "Expression\n(logcounts)\n")
+    chameleon::scale_color_chameleon()
 
-notch_cph_expression <- new_dimplot(EE_notch_integrated, feature = "CG9650",size=0.6,
-               shape=19,
-               stroke=0.25)+
+
+EE_notch_integrated@meta.data$high_res_annotation <- factor(EE_notch_integrated$high_res_annotation, levels = c("EEP", "AstC-EE", "Tk-EE", "classIII-EE"))
+notch_umap <- new_dimplot(EE_notch_integrated,
+    feature = "high_res_annotation", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
     small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
     ggtitle("Notch-deficient") +
     theme(
         plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
     ) +
-    scale_color_gradient(low="lightgrey", high = "darkred", 
-                         limits = c(0,max_expression), 
-                         name = "Expression\n(logcounts)\n")
+    chameleon::scale_color_chameleon()
 
 
-umaps_ee <- ctrl_cph_expression+notch_cph_expression+ plot_layout(guides = "collect")
-ggsave(plot = umaps_ee,
-   width = 6, 
-   height = 3,
-   filename= here("plots", "main", "Fig2_EE_Cph_expr.pdf"),
-   scale=1.5)
+umaps_ee <- ctrl_umap + notch_umap + plot_layout(guides = "collect")
+ggsave(
+    plot = umaps_ee,
+    width = 6,
+    height = 3,
+    filename = here("plots", "main", "Fig2_EE_UMAPs.pdf"),
+    scale = 1.5
+)
 
 
+
+
+max_expression <- rbind(FetchData(EE_ctrl_integrated, "CG9650"), FetchData(EE_notch_integrated, "CG9650"))[, 1] %>% max()
+ctrl_cph_expression <- new_dimplot(EE_ctrl_integrated,
+    feature = "CG9650", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    ggtitle("Control") +
+    theme(
+        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
+    ) +
+    scale_color_gradient(
+        low = "lightgrey", high = "darkred",
+        limits = c(0, max_expression),
+        name = "Expression\n(logcounts)\n"
+    )
+
+notch_cph_expression <- new_dimplot(EE_notch_integrated,
+    feature = "CG9650", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    ggtitle("Notch-deficient") +
+    theme(
+        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
+    ) +
+    scale_color_gradient(
+        low = "lightgrey", high = "darkred",
+        limits = c(0, max_expression),
+        name = "Expression\n(logcounts)\n"
+    )
+
+
+umaps_ee <- ctrl_cph_expression + notch_cph_expression + plot_layout(guides = "collect")
+ggsave(
+    plot = umaps_ee,
+    width = 6,
+    height = 3,
+    filename = here("plots", "main", "Fig2_EE_Cph_expr.pdf"),
+    scale = 1.5
+)
 ```
 
 

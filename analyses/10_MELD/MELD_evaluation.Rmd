@@ -104,12 +104,12 @@ integrated <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
 # read in all the data for which we have MELD prediction
 files <- list.files(here::here("output", "MELD"), pattern = "_info_", full.names = T)
 
-meld_res <- lapply(files, function(x){
+meld_res <- lapply(files, function(x) {
     # skip progenitors, they are included in ISC and EB (and part of EE)
-    if(grepl("progenitors",x)){
+    if (grepl("progenitors", x)) {
         return()
     }
-    fread(x, data.table=F)
+    fread(x, data.table = F)
 }) %>% bind_rows()
 
 # add them to the seurat obj
@@ -119,7 +119,7 @@ integrated@meta.data <- integrated@meta.data %>%
 rownames(integrated@meta.data) <- integrated$Barcode_unique
 
 # the problem is, that dECs are missing (because they dont exist for Notch)
-# this makes the dataset unsuitable for trajectory inference. 
+# this makes the dataset unsuitable for trajectory inference.
 saveRDS(integrated, here("output", "Ctrl_NotchKO_per_celltype_res_meld.rds"))
 ```
 

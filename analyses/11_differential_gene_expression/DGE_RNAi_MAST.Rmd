@@ -134,8 +134,6 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     return(per_condition_res)
 })
 saveRDS(MAST_results, here("output", "differential_expression", "MAST", "MAST_res_coarse.rds"))
-
-
 ```
 
 
@@ -322,7 +320,7 @@ DefaultAssay(seurat) <- "RNA"
 
 # we combine ISC and EEPs to progenitor population
 seurat <- seurat[, seurat$high_res_annotation %in% c("ISC", "EEP")]
-seurat$tmp_celltype = "Progenitor_ISC_EEP"
+seurat$tmp_celltype <- "Progenitor_ISC_EEP"
 ```
  
  
@@ -398,9 +396,6 @@ MAST_results <- lapply(setNames(unique(sce$tmp_celltype), unique(sce$tmp_celltyp
     return(per_condition_res)
 })
 saveRDS(MAST_results, here("output", "differential_expression", "MAST", "MAST_res_ISC_EEP_combined.rds"))
-
-
-
 ```
 
 
@@ -414,17 +409,22 @@ MAST_results <- readRDS(here("output", "differential_expression", "MAST", "MAST_
 ################
 for (celltype in names(MAST_results)) {
     for (condition in names(MAST_results[[celltype]])) {
-        dir.create(here("output",  "differential_expression", "MAST", condition, celltype),
-                   showWarnings = F, recursive = TRUE)
-        if(is.null(MAST_results[[celltype]][[condition]])){next}
+        dir.create(here("output", "differential_expression", "MAST", condition, celltype),
+            showWarnings = F, recursive = TRUE
+        )
+        if (is.null(MAST_results[[celltype]][[condition]])) {
+            next
+        }
         MAST_results[[celltype]][[condition]] %>%
-            select(gene = primerid, logFC=coef, p_adj = FDR) %>%
+            select(gene = primerid, logFC = coef, p_adj = FDR) %>%
             arrange(p_adj) %>%
-            mutate(celltype = !!celltype,
-                   condition = !!condition) %>%
+            mutate(
+                celltype = !!celltype,
+                condition = !!condition
+            ) %>%
             data.table::fwrite(.,
                 file = here(
-                    "output",  "differential_expression",
+                    "output", "differential_expression",
                     "MAST", condition, celltype,
                     str_interp("MAST_diff_expr_${condition}_${celltype}.tsv")
                 ),

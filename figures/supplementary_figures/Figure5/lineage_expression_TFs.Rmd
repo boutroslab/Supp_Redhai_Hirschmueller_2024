@@ -1,5 +1,5 @@
 ---
-title: "Figure 2 Show Cph Expression along lineage 4"
+title: "Figure 5 Lineage expression TFs"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -18,10 +18,9 @@ library(Seurat)
 library(tidyverse)
 library(patchwork)
 library(here)
-library(ComplexHeatmap)
-library(circlize)
 library(tradeSeq)
 library(SingleCellExperiment)
+library(slingshot)
 
 source(here("plot_theme.R"))
 source(here("helper_functions.R"))
@@ -41,6 +40,7 @@ This script is to check the expression of certain genes of interest.
 library(Seurat)
 library(tidyverse)
 library(patchwork)
+library(condiments)
 library(here)
 library(condiments)
 library(slingshot)
@@ -50,25 +50,7 @@ source(here("plot_theme.R"))
 source(here("helper_functions.R"))
 ```
 
-
-
 ```{r}
-seurat <- readRDS(here("output", "seuratKO_slingshot_object_integrated.rds"))
-
-seurat[["pca_mod"]] <- CreateDimReducObject(
-    embeddings = Embeddings(seurat, reduction = "pca") * -1,
-    key = "PCAmod_",
-    assay = "integrated"
-)
-smoothers_data <- readRDS(here("output", "plotSmoothers_data.rds"))
-
-# see the script 9_trajectory_inference/trajectory_inference_condiments.Rmd why this is okay to do
-slingshot_individual <- readRDS(here("output", "slingshot_individual_fit.rds"))
-slingshot_individual$condition_id <- names(slingshot_individual)
-slingshot_individual$mapping <- matrix(rep(1:4, each = 2), nrow = 4, ncol = 2, byrow = TRUE)
-slingshot_merged <- do.call(merge_sds, slingshot_individual)
-
-
 plot_curves <- function(gene) {
     plots <- lapply(c("ctrl", "notch"), function(condition) {
         upper_limit <- FetchData(seurat, c(gene))[, 1] %>% max()
@@ -83,37 +65,69 @@ plot_curves <- function(gene) {
             scale_color_gradient(low = "grey", high = "darkred", limits = c(0, upper_limit), name = str_interp("${gene}\nexpression")) +
             small_axis("PC ", arrow_length = 19) +
             geom_path(data = slingCurves(sds_cond)[[4]]$s[slingCurves(sds_cond)[[4]]$ord, ] %>%
-                as.data.frame(), aes(x = PCAmod_1, y = PCAmod_2), color = "black", linewidth = 0.3) +
+                data.frame(), aes(x = PCAmod_1, y = PCAmod_2), color = "black", linewidth = 0.3) +
             scale_y_reverse() +
             ggtitle(condition) +
             theme(
                 legend.title = element_text(size = 10),
                 legend.text = element_text(size = 9),
                 legend.key.size = unit(0.8, "lines")
-            )
+            ) +
+            annotate("text", x = -10, y = -5.5, label = "ISCs") +
+            annotate("text", x = 13, y = 33, label = "EEs") +
+            annotate("text", x = 31, y = -8, label = "ECs")
         return(p)
     })
-    return(wrap_plots(plots, ncol = 1) + plot_layout(guides = "collect"))
+    return(wrap_plots(plots, ncol = 2) + plot_layout(guides = "collect"))
 }
+```
 
-# plot Cph
-p <- plot_curves("CG9650")
 
-ggsave(
-    plot = p,
-    width = 2.5,
-    height = 3,
-    filename = here("plots", "main", "Fig2_Cph_PCA_lineage_expr.pdf"),
-    scale = 1.5
+```{r}
+seurat <- readRDS(here("output", "seuratKO_slingshot_object_integrated.rds"))
+
+seurat[["pca_mod"]] <- CreateDimReducObject(
+    embeddings = Embeddings(seurat, reduction = "pca") * -1,
+    key = "PCAmod_",
+    assay = "integrated"
 )
+
+trade_seq_diff <- readRDS(here("output", "tradeSeq_condition_test_res_strict.rds"))
+diff_genes <- trade_seq_diff$Lineage4 %>%
+    filter(padj_lineage4 < 0.05) %>%
+    pull(gene)
+
+
+# this list was downloaded from flymine
+tf_list <- data.table::fread(here("raw_data", "flymine_results_2023-01-11T00-54-01.tsv"), header = F, data.table = F)
+
+diff_tfs <- intersect(tf_list$V2, diff_genes)
+
+# all except CG9650
+diff_tfs <- diff_tfs[-which(diff_tfs == "CG9650")]
+
+
+# see the script 9_trajectory_inference/trajectory_inference_condiments.Rmd why this is okay to do
+slingshot_individual <- readRDS(here("output", "slingshot_individual_fit.rds"))
+slingshot_individual$condition_id <- names(slingshot_individual)
+slingshot_individual$mapping <- matrix(rep(1:4, each = 2), nrow = 4, ncol = 2, byrow = TRUE)
+slingshot_merged <- do.call(merge_sds, slingshot_individual)
+
+
+plots <- lapply(diff_tfs, plot_curves)
+for (p in plots) {
+    print(names(p$data)[4])
+    ggsave(
+        plot = p,
+        width = 4,
+        height = 2,
+        filename = here("plots", "sup", "Fig5_lineage_expr", str_interp("Fig5_${names(p$data)[4]}_PCA_lineage_expr.pdf")),
+        scale = 1.8
+    )
+}
 ```
 
 
 ```{r}
 sessionInfo()
 ```
-
-
-
-
-

@@ -58,16 +58,17 @@ seurat_isc$Delta_status <- delta_classification$Delta_status
 
 ### Draw some violine plots
 ```{r}
-p <- FetchData(seurat_isc, c("CG9650", "perturbation","Delta_status")) %>% 
-    filter(Delta_status !="medium") %>% 
-    mutate(dummy = ifelse(.$Delta_status == "high", "X","Z")) %>% # necessary to color the violines black...
+p <- FetchData(seurat_isc, c("CG9650", "perturbation", "Delta_status")) %>%
+    filter(Delta_status != "medium") %>%
+    mutate(dummy = ifelse(.$Delta_status == "high", "X", "Z")) %>% # necessary to color the violines black...
     rownames_to_column("id") %>%
-    mutate(Delta_status = factor(Delta_status, levels=c("low","high"))) %>% 
+    mutate(Delta_status = factor(Delta_status, levels = c("low", "high"))) %>%
     pivot_longer(-c(id, perturbation, Delta_status, dummy)) %>%
     ggplot(., aes(x = perturbation, y = value, color = Delta_status, fill = Delta_status)) +
     geom_point(size = 0.65, stroke = 0.4, shape = 21, position = position_jitterdodge(jitter.width = 0.3)) +
-    geom_violin(mapping=aes(x=perturbation, y = value, color=dummy), inherit.aes = F,
-        adjust = 1, trim = TRUE, fill=NA,
+    geom_violin(
+        mapping = aes(x = perturbation, y = value, color = dummy), inherit.aes = F,
+        adjust = 1, trim = TRUE, fill = NA,
         scale = "width", show.legend = F,
         width = 0.72 # adjust width so the violine does not stick out too much
     ) +
@@ -79,9 +80,8 @@ p <- FetchData(seurat_isc, c("CG9650", "perturbation","Delta_status")) %>%
     ) +
     ylab("Expression\n(logcounts)") +
     xlab("Condition") +
-    scale_color_manual(values = c(c("#f0bb47", "#996c09"), "black","black"), breaks = c("low","high")) +
-    scale_fill_manual(values = alpha(c("#f0bb47", "#996c09"), 0.3)) +
-    ggtitle(gene)
+    scale_color_manual(values = c(c("#f0bb47", "#996c09"), "black", "black"), breaks = c("low", "high")) +
+    scale_fill_manual(values = alpha(c("#f0bb47", "#996c09"), 0.3))
 
 p
 ggsave(
@@ -89,5 +89,26 @@ ggsave(
     plot = p,
     height = 3, width = 4.5, scale = 1.3
 )
-
 ```
+
+
+# now check if the expression is different between high and low of the same condition
+```{r}
+res <- parallel::mclapply(unique(seurat_isc$perturbation), function(condition) {
+    tmp <- seurat_isc[, seurat_isc$perturbation == condition]
+    Idents(tmp) <- tmp$Delta_status
+    FindMarkers(tmp,
+        ident.1 = "high", ident.2 = "low",
+        logfc.threshold = 0, min.pct = 0
+    ) %>%
+        rownames_to_column("gene") %>%
+        mutate(condition = condition)
+}, mc.cores = 5)
+```
+
+
+
+```{r}
+sessionInfo()
+```
+

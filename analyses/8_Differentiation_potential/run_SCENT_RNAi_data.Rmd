@@ -48,7 +48,7 @@ MIST <- data.table::fread(here("raw_data", "MIST_interaction_ppi_vs5_0-7227.txt"
 
 # filtering required:
 MIST <- MIST %>%
-    filter(TaxID_A == 7227 & TaxID_B == 7227) %>%  # 7227 is Drosophila
+    filter(TaxID_A == 7227 & TaxID_B == 7227) %>% # 7227 is Drosophila
     filter(Rank == "high") %>% # only keep high confidence interactions
     dplyr::select(GeneA, GeneB, Rank, contains("Exp"))
 ```
@@ -136,7 +136,7 @@ diag(ppi) <- 0
 
 ```{r}
 # run SCENT.
-# IMPORTANT, THERE IS A SMALL BUG WITH SCENT. 
+# IMPORTANT, THERE IS A SMALL BUG WITH SCENT.
 # THIS IS FIXED IN FORK THAT I HAVE MADE OF THE PROJECT: https://github.com/nickhir/SCENT
 ccat <- CompCCAT(
     exp.m = seurat@assays$RNA@data,
@@ -144,8 +144,6 @@ ccat <- CompCCAT(
 )
 seurat@meta.data$ccat <- ccat
 saveRDS(seurat, here("output", "Ctrl_Notch_NotchCphRNAi_integrated_scent.rds"))
-
-
 ```
 
 ```{r}

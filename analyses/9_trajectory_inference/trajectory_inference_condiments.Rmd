@@ -44,35 +44,39 @@ seurat <- seurat[, !seurat$celltype_manual %in% c("MT", "unk", "unk2")]
 
 # regroup some celltypes
 seurat@meta.data$tmp_celltype <- case_when(
-  seurat$high_res_annotation == "EEP" ~ "EEP", # include the EE progenitor population
-  seurat$celltype_manual %in% c("dEC", "daEC") ~ "dEC",
-  seurat$celltype_manual %in% c("LFC", "Copper") ~ "mEC",
-  T ~ seurat$celltype_manual
+    seurat$high_res_annotation == "EEP" ~ "EEP", # include the EE progenitor population
+    seurat$celltype_manual %in% c("dEC", "daEC") ~ "dEC",
+    seurat$celltype_manual %in% c("LFC", "Copper") ~ "mEC",
+    T ~ seurat$celltype_manual
 )
 
 # because we have removed some celltypes rerun integration
 seurat_split <- SplitObject(DietSeurat(seurat, assays = "RNA"), split.by = "orig.ident")
-seurat_split <- lapply(seurat_split,function(x){
-  x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
-  x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
-  x <- ScaleData(x)
-  return(x)
+seurat_split <- lapply(seurat_split, function(x) {
+    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
+    x <- ScaleData(x)
+    return(x)
 })
 
 # select features that are repeatedly variable across datasets for integration
 features <- SelectIntegrationFeatures(object.list = seurat_split)
 
 # find anchors between experiments
-anchors <- FindIntegrationAnchors(object.list = seurat_split,
-                                  anchor.features = features)
+anchors <- FindIntegrationAnchors(
+    object.list = seurat_split,
+    anchor.features = features
+)
 
-seurat <- IntegrateData(anchorset = anchors,
-                                          dims = 1:15)
+seurat <- IntegrateData(
+    anchorset = anchors,
+    dims = 1:15
+)
 
 DefaultAssay(seurat) <- "integrated"
 seurat <- ScaleData(seurat, verbose = F) %>%
-  RunPCA(., npcs = 50, verbose = F) %>%
-  RunUMAP(., reduction = "pca", dims = 1:20, verbose = F)
+    RunPCA(., npcs = 50, verbose = F) %>%
+    RunUMAP(., reduction = "pca", dims = 1:20, verbose = F)
 DefaultAssay(seurat) <- "RNA"
 saveRDS(seurat, here("output", "seuratKO_slingshot_object_integrated.rds"))
 ```
@@ -266,7 +270,7 @@ gam_fit_6 <- fitGAM(
 )
 saveRDS(gam_fit_6, here("output", "tradeSeq_fit_condiments_strict.rds"))
 
-gam_fit_6 <- readRDS(here("output", "tradeSeq_fit_condiments_strict.rds")) 
+gam_fit_6 <- readRDS(here("output", "tradeSeq_fit_condiments_strict.rds"))
 ```
 
 

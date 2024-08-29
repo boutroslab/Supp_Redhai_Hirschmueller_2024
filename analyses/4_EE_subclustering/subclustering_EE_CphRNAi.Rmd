@@ -29,13 +29,12 @@ source(here("helper_functions.R"))
 ```
 
 ```{r}
-# load the annotated seurat object 
+# load the annotated seurat object
 CphRNAi <- readRDS(here("output", "CphRNAi_seurat_integrated_annotated.rds"))
 
 # select EE cells
 DefaultAssay(CphRNAi) <- "RNA"
-EE_CphRNAi <- DietSeurat(CphRNAi, assays = "RNA")[,CphRNAi$celltype_manual=="EE"]
-
+EE_CphRNAi <- DietSeurat(CphRNAi, assays = "RNA")[, CphRNAi$celltype_manual == "EE"]
 ```
 
 ```{r}
