@@ -82,6 +82,8 @@ NotchCphRNAi_split <- lapply(setNames(names(NotchCphRNAi_split), names(NotchCphR
     tmp <- NotchCphRNAi_split[[x]]
     tmp <- RenameCells(tmp, add.cell.id = x)
 })
+saveRDS(NotchCphRNAi_split, here("output", "NotchCphRNAi_seurat_both.rds"))
+
 ```
 
 

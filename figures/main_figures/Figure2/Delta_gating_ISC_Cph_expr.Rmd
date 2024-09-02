@@ -24,13 +24,6 @@ source(here("helper_functions.R"))
 ```
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, warning = F, message = F)
-set.seed(123)
-```
-
-
-
 ### Load data and determine which cells express "high" delta
 ```{r}
 seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
@@ -92,7 +85,7 @@ ggsave(
 ```
 
 
-# now check if the expression is different between high and low of the same condition
+# Check if the expression is different between high and low of the same condition
 ```{r}
 res <- parallel::mclapply(unique(seurat_isc$perturbation), function(condition) {
     tmp <- seurat_isc[, seurat_isc$perturbation == condition]
@@ -106,6 +99,23 @@ res <- parallel::mclapply(unique(seurat_isc$perturbation), function(condition) {
 }, mc.cores = 5)
 ```
 
+
+
+# Check if the expression is different between high (and low) across conditions
+
+```{r}
+res <- parallel::mclapply(unique(seurat_isc$Delta_status), function(delta_status) {
+    tmp <- seurat_isc[, seurat_isc$Delta_status == delta_status]
+    Idents(tmp) <- tmp$perturbation
+    FindMarkers(tmp,
+        ident.1 = "notch", ident.2 = "ctrl",
+        logfc.threshold = 0, min.pct = 0.01
+    ) %>%
+        rownames_to_column("gene") %>%
+        mutate(Delta_status = delta_status)
+}, mc.cores = 5)
+
+```
 
 
 ```{r}
