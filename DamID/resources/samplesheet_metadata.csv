@@ -1,9 +1,0 @@
-SampleID,Condition,Replicate,bamReads,ControlID,Peaks,PeakCaller
-GSM6481634_oDam-Fer1-replicate-1,Fer1,1,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146071.sorted.bam,DamID,/scratch/peidli/DECODE_DamID/macs2/SRR21146071_peaks.narrowPeak,narrow
-GSM6481635_oDam-Fer1-replicate-2,Fer1,2,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146072.sorted.bam,DamID,/scratch/peidli/DECODE_DamID/macs2/SRR21146072_peaks.narrowPeak,narrow
-GSM6481636_oDam-Fer1-replicate-3,Fer1,3,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146073.sorted.bam,DamID,/scratch/peidli/DECODE_DamID/macs2/SRR21146073_peaks.narrowPeak,narrow
-GSM6481632_oDam-Pros-replicate-1,Pros,1,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146074.sorted.bam,DamID,/scratch/peidli/DECODE_DamID/macs2/SRR21146074_peaks.narrowPeak,narrow
-GSM6481633_oDam-Pros-replicate-2,Pros,2,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146075.sorted.bam,DamID,/scratch/peidli/DECODE_DamID/macs2/SRR21146075_peaks.narrowPeak,narrow
-GSM6481629_control-oDam-replicate-1,control,1,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146076.sorted.bam,control,/scratch/peidli/DECODE_DamID/macs2/SRR21146076_peaks.narrowPeak,narrow
-GSM6481630_control-oDam-replicate-2,control,2,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146077.sorted.bam,control,/scratch/peidli/DECODE_DamID/macs2/SRR21146077_peaks.narrowPeak,narrow
-GSM6481631_control-oDam-replicate-3,control,3,/scratch/peidli/DECODE_DamID/bowtie2/SRR21146078.sorted.bam,control,/scratch/peidli/DECODE_DamID/macs2/SRR21146078_peaks.narrowPeak,narrow

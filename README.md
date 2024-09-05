@@ -16,4 +16,26 @@ Raw sequencing read data along with count matrices and metadata for each sample 
 
 
 ## Repository structure
-The code to reproduce all analyses from the publication is located in the `analyses` folder. If you run all the scripts in order, all necessary output files will be generated to create the figures from the paper (scripts located in the `figures` folder).
+<ins>**scRNA-seq data**</ins> 
+
+Analyzed by Nick Hirschmüller and Erica Valentini.
+
+The code to reproduce all analyses is located in the `scRNAseq/analyses` folder. If you run all the scripts in order, all necessary output files will be generated to create the figures from the paper (scripts located in the `scRNAseq/figures` folder).
+
+
+<ins>**NanoDam, DamID, CHIP-seq and RNAseq data**</ins> 
+
+Analyzed by Stefan Peidli.
+
+The code to reproduce all analyses is located in the `NanoDam_DamID_CHIPseq_RNAseq` folder.
+
+
+
+
+
+
+
+
+
+
+

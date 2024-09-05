@@ -1,9 +1,0 @@
-name: damidseq_pipeline_env
-
-channels:
- - conda-forge
- - bioconda
-
-dependencies:
-  - bioconda::bowtie2 # 2.5.4
-  - bioconda::samtools # 1.20

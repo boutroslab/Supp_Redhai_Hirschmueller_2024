@@ -1,1 +1,0 @@
-NanoDam data for 2 replicates (2 samples have failed), CpH binding to DNA.

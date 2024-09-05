@@ -1,8 +1,0 @@
-name: diffbindR_env
-
-channels:
- - bioconda
-
-dependencies:
-  - bioconda::bioconductor-diffbind
-  - conda-forge::r-tidyverse

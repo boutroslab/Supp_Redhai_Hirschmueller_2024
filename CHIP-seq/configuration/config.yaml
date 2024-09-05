@@ -1,4 +1,0 @@
-SRA_accessions: # https://www.ncbi.nlm.nih.gov/sra?term=SRP078284
-  SRR3845160: SRX1929540  # sc-chip
-  SRR3845161: SRX1929542  # sc-input
-TEMPDIR: /scratch/peidli/DECODE_cph

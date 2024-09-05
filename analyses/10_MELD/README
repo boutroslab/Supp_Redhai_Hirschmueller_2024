@@ -1,7 +1,0 @@
-## How to run the scripts in this directory
-1. MELD_preprocessing.Rmd
-2. parameter_extimation_meld_tx22.py
-3. parameter_extimation_meld_tx23.py
-4. The notebook TX22_estimate_likelihood_VFC.ipynb
-5. The notebook TX23_estimate_likelihood_VFC.ipynb
-6. MELD evaluation

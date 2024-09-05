@@ -1,5 +1,0 @@
-SampleID,Condition,Replicate,bamReads,ControlID,Peaks,PeakCaller
-DS-002A5,control,2,/scratch/peidli/DECODE_NanoDam/bowtie2/DS-002A5.sorted.bam,NanoDam,/scratch/peidli/DECODE_NanoDam/macs2/DS-002A5_peaks_filtered.broadPeak,bed
-DS-002A6,Cph_NanoDam,2,/scratch/peidli/DECODE_NanoDam/bowtie2/DS-002A6.sorted.bam,NanoDam,/scratch/peidli/DECODE_NanoDam/macs2/DS-002A6_peaks_filtered.broadPeak,bed
-DS-002A7,control,1,/scratch/peidli/DECODE_NanoDam/bowtie2/DS-002A7.sorted.bam,control,/scratch/peidli/DECODE_NanoDam/macs2/DS-002A7_peaks_filtered.broadPeak,bed
-DS-002A8,Cph_NanoDam,1,/scratch/peidli/DECODE_NanoDam/bowtie2/DS-002A8.sorted.bam,control,/scratch/peidli/DECODE_NanoDam/macs2/DS-002A8_peaks_filtered.broadPeak,bed
