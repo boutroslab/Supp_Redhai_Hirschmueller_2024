@@ -1,0 +1,17 @@
+name: chipseeker_env
+
+channels:
+ - conda-forge
+ - bioconda
+#  - defaults
+
+dependencies:
+  - python=3.9
+  - conda-forge::r-base>=4.1
+  - conda-forge::r-irkernel
+  - conda-forge::r-optparse
+  - bioconda::bioconductor-chipseeker # 1.38.0
+  - bioconda::bioconductor-txdb.dmelanogaster.ucsc.dm6.ensgene
+  - bioconda::bioconductor-clusterprofiler
+  - bioconda::bioconductor-diffbind
+  - jupyter
