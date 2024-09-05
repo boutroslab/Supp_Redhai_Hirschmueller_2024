@@ -1,0 +1,3 @@
+- Data: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE102569
+- Paper: https://pubmed.ncbi.nlm.nih.gov/29335529/
+- Goal: Check if scute interacts with Cph region

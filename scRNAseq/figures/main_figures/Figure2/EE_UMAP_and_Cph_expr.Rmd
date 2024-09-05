@@ -1,0 +1,215 @@
+---
+title: "Figure 2 EE UMAP and Cph Expression"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+###########
+# CONTROL #
+###########
+
+```{r}
+# load the annotated seurat object
+ctrl <- readRDS(here("output", "ctrlKO_seurat_integrated_annotated_high_res.rds"))
+
+# select EE cells
+DefaultAssay(ctrl) <- "RNA"
+EE_ctrl <- DietSeurat(ctrl, assays = "RNA")[, ctrl$celltype_manual == "EE"]
+EE_ctrl@meta.data <- EE_ctrl@meta.data %>%
+    dplyr::select(-contains("integrated"))
+
+EE_ctrl_split <- SplitObject(EE_ctrl, split.by = "orig.ident")
+
+EE_ctrl_split <- lapply(EE_ctrl_split, function(x) {
+    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000) %>%
+        FindVariableFeatures(., selection.method = "vst", nfeatures = 3000)
+    return(x)
+})
+
+# do seurat integration
+features <- SelectIntegrationFeatures(object.list = EE_ctrl_split)
+
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(
+    object.list = EE_ctrl_split,
+    anchor.features = features
+)
+
+EE_ctrl_integrated <- IntegrateData(anchorset = anchors)
+
+DefaultAssay(EE_ctrl_integrated) <- "integrated"
+EE_ctrl_integrated <- run_seurat_steps(EE_ctrl_integrated, include_norm = F, include_leiden = F, include_louvain = T)
+DefaultAssay(EE_ctrl_integrated) <- "RNA"
+EE_ctrl_integrated <- RunUMAP(EE_ctrl_integrated,
+    reduction = "pca",
+    dims = 1:20,
+    min.dist = 0.9,
+    n.neighbors = 5,
+    seed.use = 1
+)
+```
+
+
+###########
+# NotchKO #
+###########
+
+```{r}
+# load the annotated seurat object
+notch <- readRDS(here("output", "notchKO_seurat_integrated_annotated_high_res.rds"))
+# select EE cells
+DefaultAssay(notch) <- "RNA"
+EE_notch <- DietSeurat(notch, assays = "RNA")[, notch$celltype_manual == "EE"]
+EE_notch@meta.data <- EE_notch@meta.data %>%
+    dplyr::select(-contains("integrated"))
+
+EE_notch_split <- SplitObject(EE_notch, split.by = "orig.ident")
+
+EE_notch_split <- lapply(EE_notch_split, function(x) {
+    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000) %>%
+        FindVariableFeatures(., selection.method = "vst", nfeatures = 3000)
+    return(x)
+})
+
+# do seurat integration
+features <- SelectIntegrationFeatures(object.list = EE_notch_split)
+
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(
+    object.list = EE_notch_split,
+    anchor.features = features
+)
+
+EE_notch_integrated <- IntegrateData(anchorset = anchors)
+
+DefaultAssay(EE_notch_integrated) <- "integrated"
+EE_notch_integrated <- run_seurat_steps(EE_notch_integrated, include_norm = F, include_leiden = F, include_louvain = T)
+DefaultAssay(EE_notch_integrated) <- "RNA"
+EE_notch_integrated <- RunUMAP(EE_notch_integrated,
+    reduction = "pca",
+    dims = 1:20,
+    min.dist = 0.7,
+    n.neighbors = 5
+)
+```
+
+
+
+# Create the plots
+
+```{r}
+EE_ctrl_integrated@meta.data$high_res_annotation <- factor(EE_ctrl_integrated$high_res_annotation, levels = c("EEP", "AstC-EE", "Tk-EE", "classIII-EE"))
+ctrl_umap <- new_dimplot(EE_ctrl_integrated,
+    feature = "high_res_annotation", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    ggtitle("Control") +
+    theme(
+        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
+    ) +
+    chameleon::scale_color_chameleon()
+
+
+EE_notch_integrated@meta.data$high_res_annotation <- factor(EE_notch_integrated$high_res_annotation, levels = c("EEP", "AstC-EE", "Tk-EE", "classIII-EE"))
+notch_umap <- new_dimplot(EE_notch_integrated,
+    feature = "high_res_annotation", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    ggtitle("Notch-deficient") +
+    theme(
+        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
+    ) +
+    chameleon::scale_color_chameleon()
+
+
+umaps_ee <- ctrl_umap + notch_umap + plot_layout(guides = "collect")
+ggsave(
+    plot = umaps_ee,
+    width = 6,
+    height = 3,
+    filename = here("plots", "main", "Fig2_EE_UMAPs.pdf"),
+    scale = 1.5
+)
+
+
+
+
+max_expression <- rbind(FetchData(EE_ctrl_integrated, "CG9650"), FetchData(EE_notch_integrated, "CG9650"))[, 1] %>% max()
+ctrl_cph_expression <- new_dimplot(EE_ctrl_integrated,
+    feature = "CG9650", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    ggtitle("Control") +
+    theme(
+        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
+    ) +
+    scale_color_gradient(
+        low = "lightgrey", high = "darkred",
+        limits = c(0, max_expression),
+        name = "Expression\n(logcounts)\n"
+    )
+
+notch_cph_expression <- new_dimplot(EE_notch_integrated,
+    feature = "CG9650", size = 0.6,
+    shape = 19,
+    stroke = 0.25
+) +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    ggtitle("Notch-deficient") +
+    theme(
+        plot.title = element_blank(), # element_text(hjust = 0.5, face="bold", size=11),
+    ) +
+    scale_color_gradient(
+        low = "lightgrey", high = "darkred",
+        limits = c(0, max_expression),
+        name = "Expression\n(logcounts)\n"
+    )
+
+
+umaps_ee <- ctrl_cph_expression + notch_cph_expression + plot_layout(guides = "collect")
+ggsave(
+    plot = umaps_ee,
+    width = 6,
+    height = 3,
+    filename = here("plots", "main", "Fig2_EE_Cph_expr.pdf"),
+    scale = 1.5
+)
+```
+
+
+```{r}
+sessionInfo()
+```
+

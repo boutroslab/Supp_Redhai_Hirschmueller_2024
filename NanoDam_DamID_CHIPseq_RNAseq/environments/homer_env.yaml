@@ -1,0 +1,8 @@
+name: homer_env
+
+channels:
+ - bioconda
+ - conda-forge
+
+dependencies:
+  - bioconda::homer

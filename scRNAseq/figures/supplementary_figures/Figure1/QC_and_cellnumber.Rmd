@@ -1,0 +1,283 @@
+---
+title: "Sup Fig1 QC and cellnumbers"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+### Introduction
+Highlight the batch effects for our data.
+
+
+```{r}
+########
+# CTRL #
+########
+ctrl <- readRDS(here("output", "ctrlKO_seurat_integrated_annotated_high_res.rds"))
+ctrl <- SplitObject(ctrl, split.by = "orig.ident")
+ctrl_merged <- merge(ctrl$TX22, y = ctrl$TX23)
+ctrl_merged <- run_seurat_steps(ctrl_merged) %>%
+    RunUMAP(.,
+        reduction = "pca",
+        dims = 1:20,
+        min.dist = 0.5,
+        n.neighbors = 45,
+        seed.use = 1,
+        verbose = FALSE
+    )
+
+
+
+
+ctrl_umap <- new_dimplot(ctrl_merged,
+    feature = "orig.ident",
+    size = 0.05,
+    shape = 19,
+    stroke = 0.4
+) +
+    scale_color_manual(values = c("#1492D5", "#a50f15")) +
+    small_axis("UMAP ", arrow_length = 21) +
+    theme(legend.title = element_blank()) +
+    guides(color = guide_legend(override.aes = list(size = 1.3))) +
+    ggtitle("Ctrl") +
+    scale_x_reverse()
+
+
+#########
+# NOTCH #
+#########
+notch <- readRDS(here("output", "notchKO_seurat_integrated_annotated_high_res.rds"))
+notch <- SplitObject(notch, split.by = "orig.ident")
+notch_merged <- merge(notch$TX22, y = notch$TX23)
+notch_merged <- run_seurat_steps(notch_merged) %>%
+    RunUMAP(.,
+        reduction = "pca",
+        dims = 1:20,
+        min.dist = 0.5,
+        n.neighbors = 45,
+        seed.use = 1,
+        verbose = FALSE
+    )
+
+notch_merged@meta.data$orig.ident <- str_remove_all(notch_merged$orig.ident, "_N")
+
+notch_umap <- new_dimplot(notch_merged,
+    feature = "orig.ident",
+    size = 0.05,
+    shape = 19,
+    stroke = 0.4
+) +
+    scale_color_manual(values = c("#1492D5", "#a50f15")) +
+    small_axis("UMAP ", arrow_length = 21) +
+    theme(legend.title = element_blank()) +
+    guides(color = guide_legend(override.aes = list(size = 1.3))) +
+    ggtitle("Notch KO") +
+    scale_y_reverse() +
+    scale_x_reverse()
+
+
+# combine plots
+plot <- wrap_plots(ctrl_umap, notch_umap, ncol = 2) +
+    plot_layout(guides = "collect")
+
+
+ggsave(plot,
+    filename = here("plots", "sup", "Fig1_Batch_UMAPs.pdf"),
+    width = 8, height = 4.5
+)
+```
+
+
+### number of reads and genes
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+
+genes_per_cell <- FetchData(seurat, c("nFeature_RNA", "orig.ident")) %>%
+    mutate(orig.ident = case_when(
+        orig.ident == "TX22" ~ "Control\nReplicate 1",
+        orig.ident == "TX23" ~ "Control\nReplicate 2",
+        orig.ident == "TX22_N" ~ "Notch KO\nReplicate 1",
+        orig.ident == "TX23_N" ~ "Notch KO\nReplicate 2"
+    )) %>%
+    ggplot(., aes(x = orig.ident, y = nFeature_RNA, color = orig.ident)) +
+    geom_violin() +
+    ylab("# genes per cell") +
+    theme_Publication() %+%
+    theme(
+        legend.position = "none",
+        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
+    ) +
+    scale_color_manual(values = color_mapping) +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Number of detected genes per cell") +
+    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
+
+
+
+reads_per_cell <- FetchData(seurat, c("nCount_RNA", "orig.ident")) %>%
+    mutate(orig.ident = case_when(
+        orig.ident == "TX22" ~ "Control\nReplicate 1",
+        orig.ident == "TX23" ~ "Control\nReplicate 2",
+        orig.ident == "TX22_N" ~ "Notch KO\nReplicate 1",
+        orig.ident == "TX23_N" ~ "Notch KO\nReplicate 2"
+    )) %>%
+    ggplot(., aes(x = orig.ident, y = nCount_RNA, color = orig.ident)) +
+    geom_violin() +
+    ylab("# UMIs per cell") +
+    theme_Publication() %+%
+    theme(
+        legend.position = "none",
+        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
+    ) +
+    scale_color_manual(values = color_mapping) +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Number of UMIs per cell") +
+    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
+
+
+plots <- wrap_plots(genes_per_cell, reads_per_cell, ncol = 2)
+
+ggsave(
+    filename = here("figures", "supplementary_figures", "plots", "QC_metrics_individual.pdf"),
+    plot = plots,
+    width = 10,
+    height = 4
+)
+```
+
+
+## plot each perturbation
+```{r}
+genes_per_cell <- FetchData(seurat, c("nFeature_RNA", "perturbation")) %>%
+    ggplot(., aes(x = perturbation, y = nFeature_RNA, color = perturbation)) +
+    geom_violin() +
+    ylab("# genes per cell") +
+    theme_Publication() %+%
+    theme(
+        legend.position = "none",
+        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
+    ) +
+    scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Number of detected genes per cell") +
+    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
+
+
+
+reads_per_cell <- FetchData(seurat, c("nCount_RNA", "perturbation")) %>%
+    ggplot(., aes(x = perturbation, y = nCount_RNA, color = perturbation)) +
+    geom_violin() +
+    ylab("# UMIs per cell") +
+    theme_Publication() %+%
+    theme(
+        legend.position = "none",
+        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
+    ) +
+    scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Number of UMIs per cell") +
+    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
+
+
+plots <- wrap_plots(genes_per_cell, reads_per_cell, ncol = 2)
+
+ggsave(
+    filename = here("plots", "sup", "Fig1_number_UMIs_genes.pdf"),
+    plot = plots,
+    width = 9,
+    height = 4
+)
+```
+
+
+### Cell number
+
+```{r}
+our_data <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+
+# load data from the hung et al midgut atlas
+# wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE120nnn/GSE120537/suppl/GSE120537%5Fmetadata.csv.gz
+midgut_atlas <- fread(here("raw_data", "GSE120537_metadata.csv.gz")) %>% tibble()
+
+#######################
+# Fly cell atlas data #
+#######################
+# downloaded here https://flycellatlas.org/
+# https://cloud.flycellatlas.org/index.php/s/4AFW3Q8N6eG4qXG/download/s_fca_biohub_gut_10x.loom
+# https://cloud.flycellatlas.org/index.php/s/r9mpDgWQiaJMAag/download/fca_biohub_gut_ss2.loom
+sce_gut_10X <- readRDS(here("raw_data", "gut_stringent_10X.rds"))
+sce_gut_ss <- readRDS(here("raw_data", "gut_stringent_smartSeq.rds"))
+
+# these datasets contain a lot of cells that are classified as crop or cardia, which is not part of the midgut, so we will remove them.
+mdata_gut_10X <- colData(sce_gut_10X) %>%
+    data.frame() %>%
+    filter(!annotation %in% c("crop", "cardia_1", "cardia_2"))
+
+mdata_gut_ss <- colData(sce_gut_ss) %>%
+    data.frame() %>%
+    filter(!transf_annotation %in% c("crop", "cardia_1", "cardia_2"))
+
+
+# now manually create the dataset
+df <- data.frame(
+    dataset = c(
+        "Fly cell atlas\nLi et al. 2022",
+        "Midgut atlas\nHung et al. 2020",
+        "Our control",
+        "Our Notch\nknockout"
+    ),
+    cells = c(6199, 10605, 13453, 16289)
+)
+
+
+df$dataset <- factor(df$dataset, levels = df$dataset)
+
+
+p <- ggplot(df, aes(dataset, cells, fill = dataset)) +
+    geom_col() +
+    geom_text(aes(label = cells), vjust = -0.25, size = 6.1) +
+    theme_Publication() %+%
+    theme(
+        axis.title.x = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        legend.position = "none"
+    ) +
+    scale_fill_manual(values = c("darkgrey", "darkgrey", color_mapping[1], color_mapping[4])) +
+    ylab("Number of cells") +
+    scale_y_continuous(limits = c(0, 17000), expand = expansion(mult = c(0, 0.05)))
+
+ggsave(
+    plot = p,
+    filename = here("plots", "sup", "Fig1_cell_number.pdf"),
+    width = 7, height = 5.02, units = "in"
+)
+```
+
+
+
+```{r}
+sessionInfo()
+```
+

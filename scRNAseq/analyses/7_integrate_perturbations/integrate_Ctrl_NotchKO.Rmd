@@ -1,0 +1,120 @@
+---
+title: "Integration of the Ctrl and NotchKO samples"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r load libraries}
+library(here)
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+
+# we need this to run phate. this is completely optional and not actually used in the paper (but in the shiny app)
+Sys.setenv(RETICULATE_PYTHON = "/g/huber/users/hirschmueller/software/miniconda3/bin/python")
+RETICULATE_PYTHON <- "/g/huber/users/hirschmueller/software/miniconda3/bin/python"
+library(reticulate)
+library(phateR)
+
+
+# load custom functions
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+## Introduction
+Integrate the different perturbations using Seurat.
+
+```{r}
+ctrl <- readRDS(here("output", "ctrlKO_seurat_integrated_annotated_high_res_cellcycle_region.rds"))
+notch <- readRDS(here("output", "notchKO_seurat_integrated_annotated_high_res_cellcycle_region.rds"))
+
+# split into individual experiments
+ctrl_split <- SplitObject(DietSeurat(ctrl, assays = "RNA"), split.by = "orig.ident")
+notch_split <- SplitObject(DietSeurat(notch, assays = "RNA"), split.by = "orig.ident")
+```
+
+
+```{r}
+# split into individual replicates
+ctrl_split <- lapply(ctrl_split, function(x) {
+    x$perturbation <- "ctrl"
+    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
+    x <- ScaleData(x)
+    return(x)
+})
+
+notch_split <- lapply(notch_split, function(x) {
+    x$perturbation <- "notch"
+    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
+    x <- ScaleData(x)
+    return(x)
+})
+
+
+# combine all seurat experiments in one list
+combined_list <- c(ctrl_split, notch_split)
+
+# select features that are repeatedly variable across datasets for integration
+features <- SelectIntegrationFeatures(object.list = combined_list)
+
+# find anchors between experiments
+anchors <- FindIntegrationAnchors(
+    object.list = combined_list,
+    anchor.features = features
+)
+
+seurat_naive_integration <- IntegrateData(
+    anchorset = anchors,
+    dims = 1:15
+)
+
+
+DefaultAssay(seurat_naive_integration) <- "integrated"
+seurat_naive_integration <- ScaleData(seurat_naive_integration, verbose = F) %>%
+    RunPCA(., npcs = 50, verbose = F) %>%
+    RunUMAP(.,
+        reduction = "pca",
+        dims = 1:20,
+        min.dist = 0.5,
+        n.neighbors = 45,
+        seed.use = 1,
+        verbose = FALSE
+    ) %>%
+    FindNeighbors(., dims = 1:20, k.param = 10, verbose = F) %>%
+    FindClusters(.,
+        resolution = c(0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
+    )
+
+# completely optional, is never actually used in the paper, only in the shiny app.
+phate_coords <- phate(Embeddings(seurat_naive_integration, "pca")[, 1:20],
+    knn = 5,
+    decay = 40,
+    npca = NULL
+)
+
+seurat_naive_integration[["phate"]] <- CreateDimReducObject(
+    embeddings = phate_coords$embedding * 100,
+    key = "PHATE",
+    assay = "RNA"
+)
+
+DefaultAssay(seurat_naive_integration) <- "RNA"
+saveRDS(seurat_naive_integration, here("output", "Ctrl_NotchKO_integrated.rds"))
+```
+
+
+```{r}
+sessionInfo()
+```
