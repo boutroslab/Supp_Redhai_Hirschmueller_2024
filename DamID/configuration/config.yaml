@@ -1,0 +1,10 @@
+samples:
+  SRR21146078: control-oDam-replicate-1
+  SRR21146077: control-oDam-replicate-2
+  SRR21146076: control-oDam-replicate-3
+  SRR21146075: oDam-Pros-replicate-1
+  SRR21146074: oDam-Pros-replicate-2
+  SRR21146073: oDam-Fer1-replicate-1
+  SRR21146072: oDam-Fer1-replicate-2
+  SRR21146071: oDam-Fer1-replicate-3
+TEMPDIR: /scratch/peidli/DECODE_DamID

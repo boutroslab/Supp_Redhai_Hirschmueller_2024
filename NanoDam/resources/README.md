@@ -1,0 +1,5 @@
+- CANNTG.motif file is a file that contains the motif of the CANNTG sequence, used for HOMER.
+- dm6-blacklist.v2.bed file is a file that contains the blacklist regions of the Drosophila melanogaster genome from ENCODE Blacklist.
+- fastqc_sequence_counts_plot.tsv is an export from multiqc that contains the number of sequences in each fastq file.
+- edgeR_diff_expr_Cph*_....tsv files are the output files from edgeR that contain the differentially expressed genes in Cph inhibition or OExpr.
+- samplesheet_metadata.csv is a file that contains the metadata of the samples used in the analysis in DiffBind.

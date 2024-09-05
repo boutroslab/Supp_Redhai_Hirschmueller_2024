@@ -1,0 +1,180 @@
+---
+    title: "Figure out what peaks correspond to what genes"
+author: "Nick Hirschmüller"
+date: "21/06/2023"
+output: html_document
+---
+    
+    ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## [0.0.] Load necessary packages
+```{r message=FALSE}
+library(tidyverse)
+library(magrittr)
+library(parallel)
+
+# have to add the binaries for bedtools
+Sys.setenv(PATH = paste(Sys.getenv("PATH"), "/g/huber/users/hirschmueller/software/miniconda3/bin", sep = ":"))
+
+
+library(bedr)
+library(rtracklayer)
+
+```
+
+
+```{r}
+merged_peaks_NanoDam <- data.table::fread("/g/huber/users/hirschmueller/DECODE/raw_data/nanoDAM_paper_data/Cph_data/Cph_NanoDam_peaks_FDR5.mergePeak", skip = 1, data.table = F) %>% tibble()
+colnames(merged_peaks_NanoDam) <- c("chr","start","end", "sign","score","strand", "thickStart","thickEnd","RGB")
+
+
+merged_peaks_NanoDam_100 <- merged_peaks_NanoDam %>% 
+    filter(sign==100) %>% 
+    dplyr::select(chr,start,end)
+
+peaks_gr <- GenomicRanges::GRanges(merged_peaks_NanoDam_100)
+wins_cen <- IRanges::resize(
+    x = peaks_gr,
+    width = 1,
+    fix = "center"
+)
+
+# this df contains the "center" of each binding peak (with sign100)
+peaks_df <- data.frame(chr=seqnames(wins_cen) %>% as.character(),
+                       starts=start(wins_cen)-1 %>% as.integer(),
+                       ends=end(wins_cen)%>% as.integer(),
+                       names=c(rep(".", length(wins_cen))),
+                       scores=c(rep(".", length(wins_cen))),
+                       strands=strand(wins_cen))
+
+
+
+
+# read in the annotation file:
+tss_startsites <- "/g/huber/users/hirschmueller/DECODE/raw_data/nanoDAM_paper_data/Cph_data/biomart_data/BDGP6.bm.TssBiomart.ProteinCoding.bed"
+
+# essentially we want to find out what is the closest gene
+dfAnno <- bedr::bedr(
+    engine = "bedtools",
+    input = base::list(a = peaks_df),
+    method = "closest",
+    params = base::paste("-b", tss_startsites, sep = " "),
+    check.chr = FALSE,
+    check.valid = TRUE,
+    check.sort = FALSE
+)
+
+
+# filter the dfAnno
+dfAnno <- dfAnno %>% 
+    dplyr::select(V1,V2,V3,V7,V8,V9,V13,V14) %>% 
+    set_colnames(c("chr_peak","start_peak","end_peak",
+                   "chr_gene","start_gene","end_gene",
+                   "FBid","name")) %>% 
+    distinct()
+
+# in very rare cases, two genes have exactly the same start site -> same peak gets two genes. thats why dfAnno is bigger than peaks_df
+dfAnno <- dfAnno %>%
+    group_by(chr_peak,start_peak,end_peak) %>%
+    summarise(
+        chr_gene = paste(chr_gene, collapse = "; "),
+        start_gene = paste(start_gene, collapse = "; "),
+        end_gene = paste(end_gene, collapse = "; "),
+        FBid = paste(FBid, collapse = "; "),
+        name = paste(name, collapse = "; ")
+    ) %>%
+    ungroup() %>% 
+    arrange(chr_peak,start_peak, end_peak)
+
+
+
+```
+
+
+## Try and get if we also manage some kind of ranking
+```{r}
+xmin = xmax = 500
+# get a 500 bp window around our binding peaks
+wins_reg <- GenomicRanges::promoters(
+    x = wins_cen,
+    upstream = xmin,
+    downstream = xmax
+) %>%
+    IRanges::trim()
+
+wins_reg$gene <- dfAnno$name
+
+
+
+
+# get the bigwig files which contain the binding intensities
+tracks_ <- base::list.files(
+    path = base::paste0(
+        "/g/huber/users/hirschmueller/DECODE/raw_data/nanoDAM_paper_data/Cph_data"
+    ),
+    full.names = TRUE
+) %>%
+    stringr::str_subset("_vs_") %>%
+    stringr::str_subset("bw") %>% 
+    stringr::str_subset("NanoDam") 
+
+
+
+# Calculate the score by summing the overlapping regions
+library(parallel)
+binding_score <- mclapply(tracks_,function(track){
+    cur_bw <- import.bw(track)
+    overlaps <- findOverlaps(wins_reg, cur_bw) # overlap between binding peaks and the intensities from big wig
+    # get the mean binding score per overlap
+    binding_scores <- mclapply(1:length(wins_reg), function(i){
+        subject_mapping <- subjectHits(overlaps[queryHits(overlaps) == i])
+        binding_region <- cur_bw[subject_mapping]
+        return(mean(score(binding_region)))
+    },mc.cores=20) %>% unlist() #careful, using 20cores
+})
+
+# now get average score across the 4 big wig files
+avg_binding_score <- colMeans(do.call(rbind, binding_score))
+
+# add this score
+wins_reg$binding_score <- avg_binding_score
+
+wins_reg_ordered <- wins_reg[order(-wins_reg$binding_score),]
+
+binding_df <- data.frame(chr=seqnames(wins_reg_ordered) %>% as.character(),
+                         starts=start(wins_reg_ordered)-1 %>% as.integer(),
+                         ends=end(wins_reg_ordered)%>% as.integer(),
+                         gene=wins_reg_ordered$gene,
+                         binding_score=wins_reg_ordered$binding_score)
+
+
+
+
+annotation <- data.table::fread("/g/huber/users/hirschmueller/DECODE/raw_data/nanoDAM_paper_data/Cph_data/biomart_data/BDGP6.bm.TssBiomart.ProteinCoding.bed")
+# summarize binding to just one gene
+binding_df_merged <- binding_df %>% 
+    group_by(gene) %>% 
+    summarise(combined_binding_score = sum(binding_score)) %>% 
+    arrange(desc(combined_binding_score)) %>% 
+    rownames_to_column("rank") 
+
+# get gene positions. just roughly is enough, so we just pick the first transcript that.
+# its just if we want to visualize something
+binding_df_merged <- binding_df_merged %>% 
+    left_join(., distinct(annotation, V7, .keep_all = T), 
+              by=c("gene"="V8")) %>% 
+    dplyr::select(rank,gene,combined_binding_score,
+                  chr=V1,
+                  start=V2,
+                  end=V3,
+                  transcript=V4,
+                  FBid=V7)
+
+binding_df_merged %>% 
+    data.table::fwrite(., file="/g/huber/users/hirschmueller/DECODE/analysis/notch_3prime/results/NanoDam_reanalysis/NanoDam_targets_all.tsv",
+                       sep="\t")
+
+
+```

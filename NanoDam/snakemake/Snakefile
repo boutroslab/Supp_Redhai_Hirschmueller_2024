@@ -1,0 +1,564 @@
+"""
+Author: Stefan Peidli
+Aim: Snakemake workflow for NanoDam analysis.
+Date: 25.07.2024
+Run: snakemake
+DAG: snakemake --forceall --dag | dot -Tpdf > snake_dag.pdf
+Rulegraph: snakemake --forceall --rulegraph | dot -Tpdf > snake_rulegraph.pdf
+Description:
+    Custom pipeline for analysis of NanoDam data.
+"""
+
+# Configuration, Sample names and Paths
+configfile: "../configuration/config.yaml"
+from pathlib import Path
+TEMPDIR = Path(config['TEMPDIR'])
+SAMPLES = config['SAMPLES']
+sample_ids = list(SAMPLES.keys())
+sample_names = list(SAMPLES.values())
+SEQ_ID = config['SEQ_ID']
+wildcard_constraints:
+    sample="|".join(sample_ids),
+    genome="BDGP6"
+
+rule all:
+    input:
+        # QC
+        "../results/multiqc/multiqc.html",  # MultiQC
+        expand("../results/preseq/{sample}_complexity_estimate.txt", sample=sample_ids),  # Preseq Library Complexity
+
+        # IGV
+        expand(TEMPDIR / "bigwig/{sample}.bw", sample=sample_ids),  # From Fastq to bigwig
+        "../results/tables/DS-002A6_vs_DS-002A5_bigwig_comparison.bw",
+        "../results/tables/DS-002A8_vs_DS-002A7_bigwig_comparison.bw",
+        "../results/tables/merged_bigwig_comparison.bedgraph",
+        # expand(TEMPDIR / "homer/{sample}_homer_motifs.tsv", sample=sample_ids), # Motifs
+
+        # MACS2 peaks
+        expand(TEMPDIR / "macs2/{sample}_peaks.xls", sample=sample_ids),  # Peaks from MACS2
+        "../results/tables/DS-002A6_vs_DS-002A5_filtered_broadPeak.bed",  # REP2
+        "../results/tables/DS-002A8_vs_DS-002A7_filtered_broadPeak.bed",  # REP1
+        expand("../results/tables/{sample}_filtered_broadPeak.bed", sample=sample_ids),  # BroadPeak to bed
+
+        # Annotation
+        expand("../results/tables/{sample}_annotated_peaks.csv", sample=sample_ids),  # Annotated peaks
+        "../results/tables/DS-002A6_vs_DS-002A5_annotated_peaks.csv",  # Annotated contrast peaks
+        "../results/tables/DS-002A8_vs_DS-002A7_annotated_peaks.csv",  # Annotated contrast peaks
+
+        # Downstream analysis
+        "../results/diffbind/diffbind_results.tsv",  # Differential binding
+
+        # Binned GATC
+        expand(TEMPDIR / "damidseq_pipeline-1.5.3/{sample}.GATC.binned.csv", sample=sample_ids)  # GATC binned
+
+### Download Data ###
+rule download_data:
+    output:
+        fastq=expand(TEMPDIR / 'decode_data_download/Alignment_1/20240723_002540/Fastq/{sample}_L00{i}_R1_001.fastq.gz', 
+               sample=sample_names, i=[1,2,3,4])
+    resources:
+        time='1:00:00',
+        mem_mb=4000,
+        disk_mb=8000
+    conda: 'decode_env'
+    shell:
+        '''
+        mkdir -p {TEMPDIR}/decode_data_download
+        cd {TEMPDIR}/decode_data_download
+        decode-data download -f fastq -ucd {TEMPDIR} -r {SEQ_ID}
+        '''
+
+rule gunzip:
+    input:
+        TEMPDIR / 'decode_data_download/Alignment_1/20240723_002540/Fastq/{sample}_L00{i}_R1_001.fastq.gz',
+    output:
+        temp(TEMPDIR / 'decode_data_download/Alignment_1/20240723_002540/Fastq/{sample}_L00{i}_R1_001.fastq'),
+    shell:
+        '''
+        gunzip {input}
+        '''
+
+rule merge_fastq:
+    input:
+        lambda wildcards: expand(TEMPDIR / 'decode_data_download/Alignment_1/20240723_002540/Fastq/{sample}_L00{i}_R1_001.fastq', 
+              sample=SAMPLES[wildcards.sample], i=[1,2,3,4])
+    output:
+        fastq=TEMPDIR / 'fastq/{sample}.fastq'
+    shell:
+        '''
+        mkdir -p {TEMPDIR}/fastq
+        cat {input} > {output}
+        '''
+
+rule fastqc:
+    input:
+        TEMPDIR / "fastq/{sample}.fastq"
+    output:
+        html=TEMPDIR / "fastqc/{sample}.html",
+        zip=TEMPDIR / "fastqc/{sample}_fastqc.zip" # the suffix _fastqc.zip is necessary for multiqc to find the file. If not using multiqc, you are free to choose an arbitrary filename
+    params:
+        extra = "--quiet"
+    log:
+        TEMPDIR / "fastqc/logs/{sample}.log"
+    threads: 8
+    resources:
+        mem_mb = 1024
+    wrapper:
+        "v3.13.8/bio/fastqc"
+
+rule multiqc:
+    input:
+        expand(TEMPDIR / 'fastqc/{sample}.html', sample=sample_ids),
+        expand(TEMPDIR / 'fastq/{sample}_trimmed_fastqc.html', sample=sample_ids),
+        expand(TEMPDIR / "samtools_stats/{sample}.txt", sample=sample_ids),
+        expand(TEMPDIR / "macs2/{sample}_peaks.xls", sample=sample_ids),
+    output:
+        "../results/multiqc/multiqc.html",
+        directory(TEMPDIR / "multiqc_data"),
+    params:
+        extra="--verbose",  # Optional: extra parameters for multiqc.
+    log:
+        "logs/multiqc.log",
+    wrapper:
+        "v3.13.8/bio/multiqc"
+
+
+### Process data from Raw ###
+rule get_bowtie_index:
+    # Get genome index for bowtie2
+    output:
+        expand(TEMPDIR / "genome/{{genome}}/{{genome}}.{i}.bt2", 
+               i=[1,2,3,4,'rev.1','rev.2']),
+        directory(TEMPDIR / "genome/{genome}")
+    shell:
+        """
+        mkdir -p {TEMPDIR}/genome
+        cd {TEMPDIR}/genome
+        wget https://genome-idx.s3.amazonaws.com/bt/{wildcards.genome}.zip
+        unzip {wildcards.genome}.zip
+        """
+
+rule trim_galore:
+    # Trim reads
+    input:
+        fastq=TEMPDIR / 'fastq/{sample}.fastq'
+    output:
+        TEMPDIR / 'fastq/{sample}_trimmed.fq'
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    threads: 16
+    shell:
+        """
+        cd {TEMPDIR}/fastq
+        trim_galore --fastqc --illumina --clip_R1 3 --three_prime_clip_R1 5 \
+            --cores {threads} \
+            --quality 30 \
+            --output_dir {TEMPDIR}/fastq {input.fastq}
+        """
+
+rule bowtie2:
+    # Align reads
+    input:
+        index=TEMPDIR / "genome/BDGP6",
+        fastq=TEMPDIR / 'fastq/{sample}_trimmed.fq',
+        index_files=expand(TEMPDIR / "genome/BDGP6/BDGP6.{i}.bt2", 
+               i=[1,2,3,4,'rev.1','rev.2'])
+    output:
+        TEMPDIR / "bowtie2/{sample}.sam",
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    threads: 16
+    resources:
+        time='23:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        bowtie2 -x {input.index}/BDGP6 \
+                -U {input.fastq} \
+                -S {output} \
+                -p {threads} \
+                -N 1 # allow 1 mismatch, higher than 1 not allowed...
+        """
+
+rule sam_to_bam_filter:
+    # Filter for uniquely mapped reads and convert to bam
+    input:
+        TEMPDIR / "bowtie2/{sample}.sam"
+    output:
+        TEMPDIR / "bowtie2/{sample}.bam"
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        # filter for uniquely mapped reads (q=1)
+        samtools view -b -q 1 {input} -o {output}
+        """
+
+rule samtools_stats:
+    input:
+        bam=TEMPDIR / "bowtie2/{sample}.bam"
+    output:
+        TEMPDIR / "samtools_stats/{sample}.txt",
+    log:
+        TEMPDIR / "samtools_stats/logs/{sample}.log",
+    wrapper:
+        "v3.13.8/bio/samtools/stats"
+
+rule sort_bam:
+    # Sort bam by coordinates
+    input:
+        TEMPDIR / "bowtie2/{sample}.bam"
+    output:
+        TEMPDIR / "bowtie2/{sample}.sorted.bam"
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        samtools sort {input} -o {output}
+        """
+
+rule index_bam:
+    # Index bam
+    input:
+        TEMPDIR / "bowtie2/{sample}.sorted.bam"
+    output:
+        TEMPDIR / "bowtie2/{sample}.sorted.bam.bai"
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        samtools index {input}
+        """
+
+rule facount:
+    # Get genome stats, OPTIONAL RULE
+    output: TEMPDIR / "facount/genome_stats.txt"
+    shell:
+        """
+        wget https://ftp.ensembl.org/pub/release-111/fasta/drosophila_melanogaster/dna/Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa.gz
+        gunzip Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa.gz
+        faCount Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa -summary > {output}
+        # this gave 143726002 as effective genome size
+        """
+
+rule preseq:
+    # Estimate library complexity
+    input:
+        bam=TEMPDIR / "bowtie2/{sample}.sorted.bam"
+    output:
+        complexity="../results/preseq/{sample}_complexity_estimate.txt"
+    conda: "../../environments/preseq_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        mkdir -p ../results/preseq
+        preseq lc_extrap -P -B -o {output.complexity} {input.bam}
+        """
+
+
+rule bam_to_bigwig:
+    # Convert bam to bigwig for visualization in genome browser
+    input:
+        bam=TEMPDIR / "bowtie2/{sample}.sorted.bam",
+        bai=TEMPDIR / "bowtie2/{sample}.sorted.bam.bai",
+        blacklist="../resources/dm6-blacklist.v2.bed"
+    output:
+        TEMPDIR / "bigwig/{sample}.bw"
+    params:
+        binSize=20,
+        smoothLength=60,  # around 3 times the bin size
+        extendReads=200,
+        normalizeUsing="BPM"
+    conda: 'chip_env' # "../environments/chip_env.yaml
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    threads: 8
+    shell:
+        """
+        mkdir -p {TEMPDIR}/bigwig
+        bamCoverage -b {input.bam} \
+                    -o {output} \
+                    --numberOfProcessors {threads} \
+                    --normalizeUsing {params.normalizeUsing} \
+                    --binSize {params.binSize} \
+                    --effectiveGenomeSize 143726002 \
+                    --extendReads {params.extendReads} \
+                    --centerReads \
+                    --blackListFileName {input.blacklist} \
+                    --smoothLength {params.smoothLength} \
+                    --outFileFormat bigwig
+        """
+
+rule compare_bigwigs:
+    input:
+        bigwig1=TEMPDIR / "bigwig/{sample1}.bw",
+        bigwig2=TEMPDIR / "bigwig/{sample2}.bw"
+    output:
+        "../results/tables/{sample1}_vs_{sample2}_bigwig_comparison.bw"
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    threads: 8
+    shell:
+        """
+        bigwigCompare \
+            --bigwig1 {input.bigwig1} \
+            --bigwig2 {input.bigwig2} \
+            --operation subtract \
+            --outFileName {output} \
+            --binSize 20 \
+            --numberOfProcessors {threads} \
+            --outFileFormat bigwig
+        """
+
+rule merge_bigwigs:
+    input:
+        "../results/tables/DS-002A6_vs_DS-002A5_bigwig_comparison.bw",
+        "../results/tables/DS-002A8_vs_DS-002A7_bigwig_comparison.bw",
+    output:
+        "../results/tables/merged_bigwig_comparison.bedgraph"
+    conda: 'chip_env' # "../environments/chip_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    threads: 8
+    shell:
+        """
+        bigWigMerge {input} {output}
+        """
+
+### Peak Calling ###
+rule macs2:
+    # Call peaks with MACS2
+    input:
+        TEMPDIR / "bowtie2/{sample}.sorted.bam"
+    output:
+        TEMPDIR / "macs2/{sample}_peaks.broadPeak",
+        TEMPDIR / "macs2/{sample}_peaks.xls"
+    conda: 'macs_env'  # "../environments/macs_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        mkdir -p {TEMPDIR}/macs2
+        macs2 callpeak \
+              -t {input} \
+              -f BAM \
+              -g 1.4e+08 \
+              -q 0.05 \
+              --keep-dup all \
+              --outdir {TEMPDIR}/macs2 \
+              -m 5 50 \
+              --broad \
+              -n {wildcards.sample}
+        """
+
+rule macs2_contrast:
+    # Call peaks using MACS2 with a control sample as contrast
+    input:
+        signal=TEMPDIR / "bowtie2/{sample_signal}.sorted.bam",
+        control=TEMPDIR / "bowtie2/{sample_control}.sorted.bam"
+    output:
+        TEMPDIR / "macs2/{sample_signal}_vs_{sample_control}_peaks.broadPeak",
+        TEMPDIR / "macs2/{sample_signal}_vs_{sample_control}_peaks.xls"
+    conda: 'macs_env'  # "../environments/macs_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        macs2 callpeak \
+              -t {input.signal} \
+              -c {input.control} \
+              -f BAM \
+              -g 1.4e+08 \
+              -q 0.05 \
+              --keep-dup all \
+              --outdir {TEMPDIR}/macs2 \
+              -m 5 50 \
+              --broad \
+              -n {wildcards.sample_signal}_vs_{wildcards.sample_control}
+        """
+
+rule get_ENCODE_fly_blacklist:
+    output: "../resources/dm6-blacklist.v2.bed"
+    shell:
+        """
+        cd ../resources
+        wget https://github.com/Boyle-Lab/Blacklist/blob/master/lists/dm6-blacklist.v2.bed.gz
+        gunzip dm6-blacklist.v2.bed.gz  # somehow this only works on my Mac, not on the cluster
+        """
+
+rule filter_peaks:
+    # Filter peaks with ENCODE blacklist
+    input:
+        peaks=TEMPDIR / "macs2/{file}.broadPeak",
+        blacklist="../resources/dm6-blacklist.v2.bed"
+    output:
+        TEMPDIR / "macs2/{file}_filtered.broadPeak"
+    shell:
+        """
+        bedtools intersect -v -a {input.peaks} -b {input.blacklist} > {output}
+        """
+
+rule broadPeak_to_bed:
+    # Convert broadPeak to bed
+    input:
+        broadPeak=TEMPDIR / "macs2/{name}_peaks_filtered.broadPeak"
+    output:
+        "../results/tables/{name}_filtered_broadPeak.bed"
+    shell:
+        """
+        cut -f 1,2,3 {input} > {output}
+        """
+
+rule annotate_peaks:
+    # Annotate peaks with ChIPseeker
+    input:
+        bed_file="../results/tables/{name}_filtered_broadPeak.bed",
+    output:
+        annotated_file="../results/tables/{name}_annotated_peaks.csv"
+    conda: 'chipseeker_env'  # "../../environments/chipseeker_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    script:
+        "../../scripts/snake_chipseeker_annotate.R"
+
+# rule add_more_annotation:
+#     # Add even more annotation to the peaks
+#     input:
+#         peakfile=TEMPDIR / "macs2/{name}_peaks.broadPeak",
+#         annotated_file="../results/tables/{name}_annotated_peaks.tsv",
+#         gtf="/g/huber/users/peidli/utils/genomes/drosophila_melanogaster/Drosophila_melanogaster.BDGP6.46.110.gtf"
+#     output:
+#         "../results/tables/{name}_annotated_peaks_2.csv"
+#     resources:
+#         time='04:00:00',
+#         mem_mb=64000,
+#         disk_mb=64000,
+#     script:
+#         "../../scripts/snake_add_more_annotations.py"
+
+rule diffbind:
+    # Differential binding analysis with DiffBind
+    input:
+        bams=expand(TEMPDIR / "bowtie2/{sample}.sorted.bam", sample=sample_ids),
+        narrows=expand(TEMPDIR / "macs2/{sample}_peaks_filtered.broadPeak", sample=sample_ids)
+    output:
+        "../results/diffbind/diffbind_results.tsv"
+    params:
+        sampleSheet="../resources/samplesheet_metadata.csv"
+    conda: "r_env" # "../../environments/diffbindR_env.yaml"  # DISFUNCT YAML!
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    script: "scripts/DiffBind.R"
+
+### Motif analysis ###
+rule get_fasta:
+    # Get genome fasta
+    output:
+        TEMPDIR / "genome/BDGP6/Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa"
+    shell:
+        """
+        cd {TEMPDIR}/genome/BDGP6
+        wget https://ftp.ensembl.org/pub/release-111/fasta/drosophila_melanogaster/dna/Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa.gz
+        gunzip Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa.gz
+        """
+
+rule homer_define_motifs:
+    # Define motifs for HOMER
+    output:
+        TEMPDIR / "homer/CANNTG.motif"
+    conda: "homer_env" # "../../environments/homer_env.yaml"
+    shell:
+        """
+        seq2profile.pl CANNTG 0 CANNTG_motif > {output}
+        """
+
+rule homer:
+    # Motif analysis with HOMER
+    input:
+        peaks=TEMPDIR / "macs2/{sample}_peaks_filtered.broadPeak",
+        fasta=TEMPDIR / "genome/BDGP6/Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa",
+        motif=TEMPDIR / "homer/CANNTG.motif"
+    output:
+        TEMPDIR / "homer/{sample}_homer_motifs.tsv",
+    conda: "homer_env" # "../../environments/homer_env.yaml"
+    resources:
+        time='04:00:00',
+        mem_mb=64000,
+        disk_mb=64000,
+    shell:
+        """
+        mkdir -p {TEMPDIR}/homer/preparsed/{wildcards.sample}/
+        cd {TEMPDIR}/homer/preparsed/{wildcards.sample}/
+
+        # Usage: findMotifsGenome.pl <pos file> <genome> <output directory> [additional options]
+        findMotifsGenome.pl {input.peaks} {input.fasta} {TEMPDIR}/homer/ \
+            -preparsedDir {TEMPDIR}/homer/preparsed/{wildcards.sample}/ \
+            -find {input.motif} > {output}
+        """
+
+### Original DamIDseq pipeline ###
+rule get_pipeline:
+    # Get pipeline from github
+    output:
+        TEMPDIR / "damidseq_pipeline-1.5.3/damidseq_pipeline",
+        TEMPDIR / "damidseq_pipeline-1.5.3/gatc.track.maker.pl"
+    shell:
+        """
+        cd {TEMPDIR}
+        wget https://github.com/owenjm/damidseq_pipeline/archive/refs/tags/v1.5.3.tar.gz
+        tar -xvf v1.5.3.tar.gz
+        rm v1.5.3.tar.gz
+        """
+
+rule build_GATC_fragment_file:
+    input:
+        genome=TEMPDIR / "genome/BDGP6/Drosophila_melanogaster.BDGP6.46.dna.toplevel.fa",
+        script=TEMPDIR / "damidseq_pipeline-1.5.3/gatc.track.maker.pl"
+    output:
+        TEMPDIR / "damidseq_pipeline-1.5.3/BDGP6.GATC.gff"
+    shell:
+        """
+        cd {TEMPDIR}/damidseq_pipeline-1.5.3
+        perl gatc.track.maker.pl --name=BDGP6 {input.genome}
+        """
+
+rule GATC_binning:
+    input:
+        sorted_bam=TEMPDIR / "bowtie2/{sample}.sorted.bam",
+        bai=TEMPDIR / "bowtie2/{sample}.sorted.bam.bai",
+        gff=TEMPDIR / "damidseq_pipeline-1.5.3/BDGP6.GATC.gff"
+    output:
+        csv=TEMPDIR / "damidseq_pipeline-1.5.3/{sample}.GATC.binned.csv"
+    script:
+        "../../scripts/snake_GATC_binning.py"
+

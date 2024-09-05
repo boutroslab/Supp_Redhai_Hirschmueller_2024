@@ -1,0 +1,14 @@
+name: deseq2_env
+
+channels:
+ - conda-forge
+ - bioconda
+ - defaults
+ - r
+
+dependencies:
+  - conda-forge::r-base
+  - conda-forge::r-irkernel  #https://irkernel.github.io/installation/
+  - conda-forge::notebook
+  - bioconda::bioconductor-deseq2=1.42.0
+  - bioconda::bioconductor-biocparallel
