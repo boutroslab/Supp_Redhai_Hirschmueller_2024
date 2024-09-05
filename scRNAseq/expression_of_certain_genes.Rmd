@@ -1,0 +1,204 @@
+---
+title: "Check expression for certain genes"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+This script is to check the expression of certain genes of interest.
+
+```{r load libraries}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(gprofiler2)
+library(ggbeeswarm)
+library(ggsignif)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+### Expression of sff for RNAi with the proper MAST comparisons
+```{r}
+seurat <- readRDS("/g/huber/users/hirschmueller/DECODE/Chronophage_paper/output/Ctrl_Notch_NotchCphRNAi_integrated_scent.rds")
+DefaultAssay(seurat) <- "RNA"
+seurat <- seurat[, seurat$high_res_annotation %in% c("EEP", "ISC", "EB")]
+seurat$tmp_celltype <- "Progenitor"
+
+seurat$perturbation <- factor(seurat$perturbation, levels = c("ctrl", "NotchRNAi", "NotchCphRNAi"))
+seurat$dummy <- case_when(
+    seurat$perturbation == "ctrl" ~ "A",
+    seurat$perturbation == "NotchRNAi" ~ "B",
+    seurat$perturbation == "NotchCphRNAi" ~ "C",
+)
+progenitors <- seurat
+
+# create different seurat objects for different cell combinations
+isc <- progenitors[, progenitors$high_res_annotation == "ISC"]
+isc_eep <- progenitors[, progenitors$high_res_annotation %in% c("ISC", "EEP")]
+isc_eb <- progenitors[, progenitors$high_res_annotation %in% c("ISC", "EB")]
+
+# do diff gene expression
+Idents(progenitors) <- progenitors$perturbation
+Idents(isc) <- isc$perturbation
+Idents(isc_eep) <- isc_eep$perturbation
+Idents(isc_eb) <- isc_eb$perturbation
+
+diff_expr_seurat_notchrnai_ctrl <-
+    readRDS(here::here("output", "differential_expression_results_seurat_rnai.rds"))
+
+diff_expr_seurat_notchrnai_notchcph <-
+    readRDS((here::here("output", "differential_expression_results_seurat_NotchRNAi_vs_NotchCphRNAi.rds")))
+
+diff_expr_seurat_notchCph_ctrl <-
+    readRDS(here::here("output", "differential_expression_results_seurat_NotchCphRNAi_vs_ctrl.rds"))
+
+
+combined1 <- lapply(names(diff_expr_seurat_notchrnai_ctrl), function(x) {
+    diff_expr_seurat_notchrnai_ctrl[[x]] %>%
+        mutate(condition = x) %>%
+        mutate(comparison = "notch_vs_ctrl")
+}) %>% bind_rows()
+combined2 <- lapply(names(diff_expr_seurat_notchrnai_notchcph), function(x) {
+    diff_expr_seurat_notchrnai_notchcph[[x]] %>%
+        mutate(condition = x) %>%
+        mutate(comparison = "notch_vs_notchcph")
+}) %>% bind_rows()
+combined3 <- lapply(names(diff_expr_seurat_notchCph_ctrl), function(x) {
+    diff_expr_seurat_notchCph_ctrl[[x]] %>%
+        mutate(condition = x) %>%
+        mutate(comparison = "notchcph_vs_ctrl")
+}) %>% bind_rows()
+
+# we will use this for the logFC
+combined <- rbind(combined1, combined2, combined3)
+
+
+# now load the MAST results
+library(data.table)
+MAST_notch_ctrl <- rbind(
+    fread(here("output", "differential_expression", "MAST", "NotchRNAi", "Progenitor", "MAST_diff_expr_NotchRNAi_Progenitor_coarse.tsv"), data.table = F),
+    fread(here("output", "differential_expression", "MAST", "NotchRNAi", "Progenitor_ISC_EEP", "MAST_diff_expr_NotchRNAi_Progenitor_ISC_EEP.tsv"), data.table = F)
+)
+MAST_notch_cphnotch <- rbind(
+    fread(here("output", "differential_expression", "MAST", "NotchRNAi_vs_NotchCphRNAi", "Progenitor", "MAST_diff_expr_NotchRNAi_vs_NotchCphRNAi_Progenitor_coarse.tsv"), data.table = F),
+    fread(here("output", "differential_expression", "MAST", "NotchRNAi_vs_NotchCphRNAi", "Progenitor_ISC_EEP", "MAST_diff_expr_NotchRNAi_vs_NotchCphRNAi_Progenitor_ISC_EEP_coarse.tsv"), data.table = F)
+)
+
+MAST_cphnotch_ctrl <- rbind(
+    fread(here("output", "differential_expression", "MAST", "NotchCphRNAi", "Progenitor", "MAST_diff_expr_NotchCphRNAi_Progenitor_coarse.tsv"), data.table = F),
+    fread(here("output", "differential_expression", "MAST", "NotchCphRNAi", "Progenitor_ISC_EEP", "MAST_diff_expr_NotchCphRNAi_Progenitor_ISC_EEP.tsv"), data.table = F)
+)
+
+MAST_results <- rbind(
+    MAST_notch_ctrl %>% mutate(comparision = "notchRNAi_vs_ctrl"),
+    MAST_notch_cphnotch %>% mutate(comparision = "notchRNAi_vs_notchcph"),
+    MAST_cphnotch_ctrl %>% mutate(comparision = "notchcph_vs_ctrl")
+)
+
+
+library(ggtext)
+jitter_plot_fun <- function(srt, gene, population) {
+    mdata <- srt@meta.data[, c("tmp_celltype", "perturbation", "dummy")]
+    exp_data <- FetchData(srt, gene)
+    colnames(exp_data) <- gene
+    stopifnot(all(rownames(mdata) == rownames(exp_data)))
+
+    plot_data <- cbind(mdata, exp_data)
+    p <- ggplot(plot_data, aes(x = tmp_celltype, y = !!sym(gene))) +
+        geom_point(mapping = aes(color = perturbation, fill = perturbation), size = 0.65, stroke = 0.4, shape = 21, position = position_jitterdodge(dodge.width = 0.9)) +
+        geom_violin(
+            mapping = aes(color = dummy),
+            position = position_dodge(width = 0.9),
+            fill = NA,
+            adjust = 1, trim = TRUE,
+            scale = "width", show.legend = F,
+            width = 0.72 # adjust width so the violine does not stick out too much
+        ) +
+        theme_Publication_side_legend() %+%
+        theme(
+            axis.text.x = element_blank(),
+            axis.title.x = element_blank(),
+            legend.text = element_markdown(size = 15),
+            legend.title = element_text(size = 16)
+        ) +
+        ylab("Expression\n(logcounts)") +
+        guides(
+            color = guide_legend(
+                title = "Condition",
+                override.aes = list(size = 2, alpha = 1, shape = NULL),
+                hjust = 0
+            ),
+            fill = "none"
+        ) +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
+        stat_summary(fun = "mean", geom = "point", aes(group = perturbation), color = "black", size = 3, shape = 8, stroke = 0.95, position = position_dodge(width = 0.9)) +
+        scale_color_manual(
+            values = c("ctrl" = color_mapping[1], "NotchRNAi" = color_mapping[4], NotchCphRNAi = "#00ba38", A = "black", B = "black", C = "black"),
+            labels = c(
+                ctrl = "Control",
+                NotchRNAi = "*Notch*<sup><i>RNAi</i></sup>",
+                NotchCphRNAi = "*Cph*<sup><i>RNAi</i></sup>+*Notch*<sup><i>RNAi</i></sup>"
+            ),
+            limits = c("ctrl", "NotchRNAi", "NotchCphRNAi")
+        ) +
+        scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4], "#00ba38"), 0.4)) +
+        ggtitle(paste(population, gene)) +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.15)))
+
+
+    return(p)
+}
+
+# Create an annotation dataframe
+annotation_df <- data.frame(
+    celltype = c("a", "b", "c"),
+    y_position_ = c(3.2, 3.6, 4.3), # Adjust as needed
+    xmin_ = c(0.7, 1, 0.7),
+    xmax_ = c(1, 1.3, 1.3),
+    label = c("***", "***", "***")
+)
+
+g <- "Cdk8"
+population <- "progenitors"
+p <- jitter_plot_fun(get(population), g, population) +
+    geom_signif(
+        data = annotation_df,
+        aes(xmin = xmin_, xmax = xmax_, annotations = label, y_position = y_position_, group = celltype),
+        textsize = 6.5, manual = TRUE, vjust = 0,
+        inherit.aes = F
+    )
+
+p
+
+ggsave(
+    plot = p,
+    file = here("/g/huber/users/hirschmueller/DECODE/NotchPaper/code/scNotch_profiling", "figures", "supplementary_figures", "plots", str_interp("${g}_expression_${population}_RNAi.pdf")),
+    width = 5,
+    height = 3,
+    units = "in",
+    scale = 1.4
+)
+
+
+t
+```
+
+
+
+
+```{r}
+sessionInfo()
+```

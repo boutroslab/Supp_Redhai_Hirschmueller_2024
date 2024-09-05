@@ -1,0 +1,175 @@
+---
+title: "Differential gene expression analysis for Ctrl and Notch KO data"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+Run differential gene expression analysis for different celltypes using `muscat`. 
+Here we will use the conventional pseudobulk approach. I.e. we ignore the labels that have been predicted by MELD.
+
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(here)
+library(muscat)
+library(SingleCellExperiment)
+library(DGEvistools)
+library(patchwork)
+library(PCAtools)
+library(DESeq2)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+### Coarse Annotation
+Do the differential expression for a very coarse annotation (just 3 celltypes).
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_per_celltype_res_meld.rds"))
+
+# remove celltypes that we are not interested in, or which do not occure in all samples
+seurat <- seurat[, !seurat$celltype_manual %in% c("unk", "unk2", "MT", "dEC", "daEC")]
+
+# aggregate different related  celltypes:
+
+# Progenitors -> EEP, EB, ISC
+# EE -> EE
+# EC -> aEC, pEC, mEC, Copper, LFC
+seurat@meta.data$tmp_celltype <- case_when(
+    seurat$celltype_manual %in% c("ISC", "EB") ~ "Progenitor",
+    seurat$high_res_annotation == "EEP" ~ "Progenitor",
+    grepl("-EE", seurat$high_res_annotation) ~ "EE",
+    seurat$celltype_manual %in% c("mEC", "aEC", "pEC", "LFC", "Copper") ~ "EC",
+    T ~ seurat$celltype_manual
+)
+sce <- as.SingleCellExperiment(seurat)
+
+# muscat expects certain columns:
+sce$sample_id <- factor(sce$orig.ident, levels = c("TX22", "TX23", "TX22_N", "TX23_N"))
+sce$cluster_id <- sce$tmp_celltype
+sce$group_id <- factor(sce$perturbation, levels = c("ctrl", "notch"))
+
+# prepare the sce object
+sce <- prepSCE(sce, drop = T)
+
+# number of cells per cluster-sample
+t(table(sce$cluster_id, sce$sample_id))
+
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id")
+)
+
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info
+ei$batch <- c("TX22", "TX23", "TX22", "TX23")
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("ctrl", "TX23", "notch"))
+contr <- limma::makeContrasts("notch", levels = mm) # compare notch VS ctrl
+
+res_edgeR <- pbDS(pb, design = mm, method = "edgeR", contrast = contr)
+```
+
+# save edgeR results
+```{r}
+for (celltype in names(res_edgeR$table$notch)) {
+    dir.create(here("output", "differential_expression", "pseudobulk_coarse", celltype), showWarnings = F, recursive = T)
+    res_edgeR$table$notch[[celltype]] %>%
+        dplyr::select(gene, logCPM, logFC, p_adj = p_adj.loc, celltype = cluster_id) %>%
+        arrange(p_adj) %>%
+        data.table::fwrite(.,
+            file = here("output", "differential_expression", "pseudobulk_coarse", celltype, "edgeR_diff_expr.tsv"), sep = "\t",
+            row.names = F
+        )
+}
+```
+
+### Granular Annotation
+Do the differential expression for a more granular annotation.
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_per_celltype_res_meld.rds"))
+
+# remove celltypes that we are not interested in, or which do not occure in all samples
+seurat <- seurat[, !seurat$celltype_manual %in% c("unk", "unk2", "MT", "dEC", "daEC")]
+
+# aggregate different related  celltypes:
+seurat@meta.data$tmp_celltype <- case_when(
+    seurat$high_res_annotation == "EEP" ~ "EEP",
+    grepl("-EE", seurat$high_res_annotation) ~ "EE",
+    seurat$celltype_manual %in% c("mEC", "aEC", "pEC", "LFC", "Copper") ~ "EC",
+    T ~ seurat$celltype_manual
+)
+sce <- as.SingleCellExperiment(seurat)
+
+# muscat expects certain columns:
+sce$sample_id <- factor(sce$orig.ident, levels = c("TX22", "TX23", "TX22_N", "TX23_N"))
+sce$cluster_id <- sce$tmp_celltype
+sce$group_id <- factor(sce$perturbation, levels = c("ctrl", "notch"))
+
+# prepare the sce object
+sce <- prepSCE(sce, drop = T)
+
+# number of cells per cluster-sample
+t(table(sce$cluster_id, sce$sample_id))
+
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id")
+)
+
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info
+ei$batch <- c("TX22", "TX23", "TX22", "TX23")
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("ctrl", "TX23", "notch"))
+contr <- limma::makeContrasts("notch", levels = mm) # compare notch VS ctrl
+
+res_edgeR <- pbDS(pb, design = mm, method = "edgeR", contrast = contr)
+```
+
+# save edgeR results
+```{r}
+for (celltype in names(res_edgeR$table$notch)) {
+    dir.create(here("output", "differential_expression", "pseudobulk_granular", celltype), showWarnings = F, recursive = T)
+    res_edgeR$table$notch[[celltype]] %>%
+        dplyr::select(gene, logCPM, logFC, p_adj = p_adj.loc, celltype = cluster_id) %>%
+        arrange(p_adj) %>%
+        data.table::fwrite(.,
+            file = here("output", "differential_expression", "pseudobulk_granular", celltype, "edgeR_diff_expr.tsv"), sep = "\t",
+            row.names = F
+        )
+}
+```
+
+
+
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

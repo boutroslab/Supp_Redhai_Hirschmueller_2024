@@ -1,0 +1,127 @@
+---
+title: "Celltype assignment for Ctrl done manually"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+## Introduction
+Celltype assignment.
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(SingleR)
+library(patchwork)
+library(circlize)
+library(ComplexHeatmap)
+library(here)
+library(SingleCellExperiment)
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+set.seed(123)
+```
+
+
+```{r}
+# load integrated ctrl dataset.
+ctrl <- readRDS(here("output", "ctrlRNAi_seurat_integrated.rds"))
+
+# currated table of marker genes based on the literature such as https://www.pnas.org/doi/10.1073/pnas.1916820117 or https://www.science.org/doi/10.1126/science.abk2432 or
+# https://www.sciencedirect.com/science/article/pii/S2211124715006075
+marker_table <- data.frame(
+    gene = c(
+        "betaTry", "epsilonTry", "alphaTry",
+        "nub", "Myo31DF",
+        "esg", "N", "E(spl)mbeta-HLH", "klu",
+        "Dl",
+        "Vha100-4", "Vha16-1", "MtnC", "CG17109",
+        "pros", "7B2", "IA-2",
+        "PGRP-SC1a", "PGRP-SC1b", "Jon65Ai", "Jon65Aii", "Jon66Ci", "Jon66Cii",
+        "lambdaTry", "LManVI", "iotaTry", "etaTry", "zetaTry",
+        "thetaTry", "Npc2f",
+        "Smvt", "ct"
+    ),
+    celltype = c(
+        "aEC", "aEC", "aEC",
+        "dEC", "dEC",
+        "EB", "EB", "EB", "EB",
+        "ISC",
+        "Copper\ncells", "Copper\ncells", "Copper\ncells", "Copper\ncells",
+        "EE", "EE", "EE",
+        "LFC", "LFC", "LFC", "LFC", "LFC", "LFC", "LFC",
+        "pEC", "pEC", "pEC", "pEC",
+        "mEC", "mEC",
+        "MT", "MT"
+    )
+)
+
+
+Idents(ctrl) <- factor(ctrl$integrated_snn_res.1.3, levels = as.character(0:29))
+p <- marker_heatmap(
+    seurat = ctrl,
+    markers = marker_table$gene,
+    celltype = marker_table$celltype,
+    group.by = "integrated_snn_res.1.3",
+    cap_value = 3
+)
+p
+# based on the heatmap  assign the labels
+# really hard to specifically pick out an ISC cluster.
+ctrl$celltype_manual <- case_when(
+    ctrl$integrated_snn_res.1.3 == 0 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 1 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 2 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 3 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 4 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 5 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 6 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 7 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 8 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 9 ~ "ISC",
+    ctrl$integrated_snn_res.1.3 == 10 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 11 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 12 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 13 ~ "pEC",
+    ctrl$integrated_snn_res.1.3 == 14 ~ "ISC",
+    ctrl$integrated_snn_res.1.3 == 15 ~ "mEC",
+    ctrl$integrated_snn_res.1.3 == 16 ~ "daEC",
+    ctrl$integrated_snn_res.1.3 == 17 ~ "dEC",
+    ctrl$integrated_snn_res.1.3 == 18 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 19 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 20 ~ "LFC",
+    ctrl$integrated_snn_res.1.3 == 21 ~ "ISC",
+    ctrl$integrated_snn_res.1.3 == 22 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 23 ~ "EB",
+    ctrl$integrated_snn_res.1.3 == 24 ~ "Copper",
+    ctrl$integrated_snn_res.1.3 == 25 ~ "EE",
+    ctrl$integrated_snn_res.1.3 == 26 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 27 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 28 ~ "aEC",
+    ctrl$integrated_snn_res.1.3 == 29 ~ "MT",
+    T ~ ctrl$integrated_snn_res.1.3
+)
+
+
+ctrl$celltype_manual <- factor(ctrl$celltype_manual,
+    levels = c("ISC", "EB", "dEC", "daEC", "aEC", "Copper", "mEC", "LFC", "pEC", "EE", "MT")
+)
+
+marker_table$celltype <- factor(marker_table$celltype,
+    levels = c("ISC", "EB", "dEC", "daEC", "aEC", "Copper", "mEC", "LFC", "pEC", "EE", "MT")
+)
+
+saveRDS(ctrl, here("output", "ctrlRNAi_seurat_integrated_annotated.rds"))
+```
+
+
+```{r, echo=T, message=T, error=T}
+sessionInfo()
+```

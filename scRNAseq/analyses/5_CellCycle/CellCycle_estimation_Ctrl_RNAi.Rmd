@@ -1,0 +1,112 @@
+---
+title: "Estimate the Cell cycle for the ctrl data"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r load libraries}
+library(here)
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(gprofiler2)
+# load custom functions
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+## Introduction
+Estimate the cell cycle phase that the cells are in using marker genes. 
+
+```{r}
+ctrl <- readRDS(here("output", "ctrlRNAi_seurat_integrated_annotated_high_res.rds"))
+
+# Seurat comes with marker genes for the cell cycles in humans. we map them to drosophila
+s_genes <- gorth(
+    query = cc.genes.updated.2019$s.genes,
+    source_organism = "hsapiens",
+    target_organism = "dmelanogaster"
+) %>%
+    pull(ortholog_name)
+
+
+
+
+g2m_genes <- gorth(
+    query = cc.genes.updated.2019$g2m.genes,
+    source_organism = "hsapiens",
+    target_organism = "dmelanogaster"
+) %>%
+    pull(ortholog_name)
+
+# run the scoring seperately for the replicates:
+ctrl_split <- SplitObject(ctrl, split.by = "orig.ident")
+
+ctrl_split <- lapply(setNames(names(ctrl_split), names(ctrl_split)), function(x) {
+    print(x)
+    tmp <- ctrl_split[[x]]
+    tmp <- CellCycleScoring(tmp,
+        g2m.features = g2m_genes,
+        s.features = s_genes
+    )
+    return(tmp)
+})
+
+# make sure that the cell IDs are the same when transfering the metadata
+stopifnot(all(Cells(ctrl) == lapply(ctrl_split, function(x) Cells(x)) %>%
+    unlist() %>%
+    unname()))
+
+ctrl$S.Score <- lapply(ctrl_split, function(x) x$S.Score) %>%
+    unlist() %>%
+    unname()
+ctrl$G2M.Score <- lapply(ctrl_split, function(x) x$G2M.Score) %>%
+    unlist() %>%
+    unname()
+ctrl$Phase <- lapply(ctrl_split, function(x) x$Phase) %>%
+    unlist() %>%
+    unname()
+
+saveRDS(ctrl, here("output", "ctrlRNAi_seurat_integrated_annotated_high_res_cellcycle.rds"))
+```
+
+# Visualize scoring
+```{r}
+# check the distribution of phases per celltype
+phase_distribution <- ctrl@meta.data %>%
+    group_by(Phase, celltype_manual) %>%
+    tally() %>%
+    left_join(., table(ctrl$celltype_manual) %>%
+        enframe(name = "celltype_manual", value = "n_total")) %>%
+    mutate(fraction = n / n_total) %>%
+    mutate(Phase = factor(Phase, levels = c("G1", "S", "G2M"))) %>%
+    dplyr::filter(celltype_manual != "unk")
+
+
+ggplot(phase_distribution, aes(x = Phase, y = fraction, fill = Phase)) +
+    geom_col() +
+    facet_wrap(~celltype_manual) +
+    chameleon::scale_fill_chameleon() +
+    theme_Publication() %+%
+    theme(legend.position = "none") +
+    ylab("Fraction of cells")
+```
+
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+
