@@ -18,6 +18,7 @@ library(Seurat)
 library(tidyverse)
 library(patchwork)
 library(here)
+library(ggsignif)
 
 # source plotting theme
 source(here("plot_theme.R"))
@@ -81,11 +82,15 @@ p <- FetchData(progenitors, c("sff", "high_res_annotation", "perturbation")) %>%
 
 ggsave(
     plot = p,
-    file = here("plots", "main", "Fig6_sff_expression_isc_eep.pdf"),
+    file = here("scRNAseq","plots", "main", "Fig6_sff_expression_isc_eep.pdf"),
     width = 3.5,
     height = 3,
     units = "in",
     scale = 1.4
 )
+```
+
+```{r}
+sessionInfo()
 ```
 
