@@ -1,0 +1,80 @@
+---
+title: "Figure 6B"
+author: "Erica Valentini"
+date: "2024-09-05"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = FALSE)
+```
+
+**Last modified:**
+```{r}
+print(date())
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(ggpubr)
+library(cowplot)
+
+Manuscript_RNA_raw <- read_csv("../raw_data/Manuscript_RNA_raw.csv")
+
+genes_to_check <- c("BCL11A", "BCL11B", "NOTCH1", "NOTCH2", "NOTCH3", "NOTCH4", "HES1", "HES2", "HES3", "HES4", "HES5", "HES6", "HES7", "HEY1", "HEY2")
+
+```
+
+# Figure 6B
+
+## Prepare data
+
+```{r AML_publication}
+
+filtered_manuscript_raw <- Manuscript_RNA_raw %>% 
+  rename("gene" = "...1") %>% 
+  filter(gene %in% genes_to_check)
+
+filtered_manuscript_raw_t <- as_tibble(cbind(samples = names(filtered_manuscript_raw[2:ncol(filtered_manuscript_raw)]), t(filtered_manuscript_raw[2:ncol(filtered_manuscript_raw)])))
+
+colnames(filtered_manuscript_raw_t) <- c("SAMPLE", filtered_manuscript_raw$gene)
+
+```
+
+## Boxplot
+
+```{r boxplot_pub, fig.width=12}
+
+
+filtered_manuscript_raw_t %>% 
+  pivot_longer(!SAMPLE, names_to = "gene", values_to = "count") %>%
+  mutate(count = as.numeric(count)) %>% 
+  mutate(normalized_counts = log2(count) + 1) %>% 
+  mutate(status = ifelse(grepl("mature", SAMPLE), "differentiated", "primitive")) %>% 
+  filter(status == "primitive") %>% 
+  arrange(gene) %>% 
+  ggboxplot("gene", "normalized_counts", add = "jitter")
+
+ggsave(filename = "../Graphics/6B_boxplot.pdf", device = "pdf")
+
+```
+
+
+# R session info
+
+```{r}
+sessionInfo()
+```
