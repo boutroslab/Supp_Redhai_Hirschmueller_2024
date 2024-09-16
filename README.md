@@ -2,7 +2,7 @@
 
 This repository contains scripts and files supporting the publication: </br>
 
-[Redhai & Hirschmüller _et al._](https://www.biorxiv.org/), **Proliferation and differentiation of intestinal stem cells depends on the zinc finger transcription factor BCL11/Chronophage** (2024).
+[Redhai & Hirschmüller _et al._](https://www.biorxiv.org/content/10.1101/2024.09.08.611891v1#), **Proliferation and differentiation of intestinal stem cells depends on the zinc finger transcription factor BCL11/Chronophage** (2024).
 
 
 ## Abstract
