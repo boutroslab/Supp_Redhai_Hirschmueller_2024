@@ -49,13 +49,6 @@ CphUp$orig.ident.unique <- paste(CphUp$orig.ident, "CphUp", sep = "_")
 CphUp <- RenameCells(CphUp, add.cell.id = "CphUp")
 CphUp@meta.data$high_res_annotation <- CphUp$celltype_manual
 
-
-CphRNAi <- readRDS(here("output", "CphRNAi_seurat_integrated_annotated_cellcycle.rds"))
-CphRNAi$orig.ident.unique <- paste(CphRNAi$orig.ident, "CphRNAi", sep = "_")
-CphRNAi <- RenameCells(CphRNAi, add.cell.id = "CphRNAi")
-CphRNAi@meta.data$high_res_annotation <- CphRNAi$celltype_manual
-
-
 NotchCphRNAi <- readRDS(here("output", "NotchCphRNAi_seurat_TX49_rep1_annotated_cellcycle.rds"))
 NotchCphRNAi$orig.ident.unique <- paste(NotchCphRNAi$orig.ident, "NotchCphRNAi", sep = "_")
 NotchCphRNAi <- RenameCells(NotchCphRNAi, add.cell.id = "NotchCphRNAi")
@@ -68,7 +61,6 @@ NotchCphRNAi@meta.data$high_res_annotation <- NotchCphRNAi$celltype_manual
 ctrl_split <- SplitObject(DietSeurat(ctrl, assays = "RNA"), split.by = "orig.ident.unique")
 NotchRNAi_split <- SplitObject(DietSeurat(NotchRNAi, assays = "RNA"), split.by = "orig.ident.unique") # not really necessary since only one sample anyway
 CphUp_split <- SplitObject(DietSeurat(CphUp, assays = "RNA"), split.by = "orig.ident.unique")
-CphRNAi_split <- SplitObject(DietSeurat(CphRNAi, assays = "RNA"), split.by = "orig.ident.unique")
 NotchCphRNAi_split <- SplitObject(DietSeurat(NotchCphRNAi, assays = "RNA"), split.by = "orig.ident.unique") # not really necessary since only one sample anyway
 
 
@@ -97,14 +89,6 @@ CphUp_split <- lapply(CphUp_split, function(x) {
     return(x)
 })
 
-CphRNAi_split <- lapply(CphRNAi_split, function(x) {
-    x$perturbation <- "CphRNAi"
-    x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
-    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
-    x <- ScaleData(x)
-    return(x)
-})
-
 NotchCphRNAi_split <- lapply(NotchCphRNAi_split, function(x) {
     x$perturbation <- "NotchCphRNAi"
     x <- NormalizeData(x, normalization.method = "LogNormalize", scale.factor = 10000)
@@ -115,7 +99,7 @@ NotchCphRNAi_split <- lapply(NotchCphRNAi_split, function(x) {
 
 
 # combine all seurat experiments in one list
-combined_list <- c(ctrl_split, NotchRNAi_split, CphUp_split, CphRNAi_split, NotchCphRNAi_split)
+combined_list <- c(ctrl_split, NotchRNAi_split, CphUp_split, NotchCphRNAi_split)
 
 # select features that are repeatedly variable across datasets for integration
 features <- SelectIntegrationFeatures(object.list = combined_list)
