@@ -1,0 +1,173 @@
+---
+title: "Supp Fig 11 Cph Up ORA"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(enrichR)
+library(viridis)
+library(Seurat)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+```{r}
+differentially_expressed_genes <- data.table::fread(here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"), data.table = F)
+
+setEnrichrSite("FlyEnrichr")
+dbs <- c(
+    "GO_Biological_Process_2018",
+    "KEGG_2019", "WikiPathways_2018"
+)
+
+enrichr_res <- lapply(setNames(c("up", "down"), c("up", "down")), function(dir_) {
+    print(dir_)
+    if (dir_ == "up") {
+        genes <- differentially_expressed_genes %>%
+            filter(logFC > 1) %>%
+            filter(p_adj < 0.05) %>%
+            pull(gene)
+        print(length(genes))
+    } else {
+        genes <- differentially_expressed_genes %>%
+            filter(logFC < -1) %>%
+            filter(p_adj < 0.05) %>%
+            pull(gene)
+        print(length(genes))
+    }
+    ora_res_tmp <- enrichr(genes, dbs)
+    return(ora_res_tmp)
+})
+```
+
+
+### Visualize results
+```{r}
+library(rrvgo)
+library(patchwork)
+library(org.Dm.eg.db)
+
+# rrvgo needs a mapping of GO terms to genes.
+semdata <- GOSemSim::godata(org.Dm.eg.db, ont = "BP", keytype = "ENTREZID")
+
+
+options(warn = 1)
+for (direction in names(enrichr_res)) {
+    print(direction)
+    GO_BP <- enrichr_res[[direction]][["GO_Biological_Process_2018"]]
+    GO_BP$ID <- str_extract_all(GO_BP$Term, "GO:\\d+") %>% unlist()
+    GO_BP$n_genes <- str_count(GO_BP$Genes, ";") + 1
+    GO_BP$Term <- lapply(GO_BP$Term, function(x) {
+        paste(strwrap(x, width = 50), collapse = "\n")
+    }) %>% unlist()
+
+
+    GO_BP_filtered <- GO_BP %>%
+        filter(Adjusted.P.value < 0.05) %>%
+        filter(n_genes >= 2)
+
+    if (nrow(GO_BP_filtered) == 0) {
+        next()
+    }
+
+    if (nrow(GO_BP_filtered) == 1) {
+        dotplot <- ggplot(GO_BP_filtered, aes(x = Combined.Score, y = Term)) +
+            geom_segment(aes(xend = 0, yend = Term), size = 1.2) +
+            geom_point(size = 5) +
+            theme_Publication() +
+            ylab("Gene Set") +
+            xlab("Enrichment Score") +
+            ggtitle(paste(condition, celltype, direction))
+
+        ggsave(
+            filename = here(
+                "scRNAseq", "analyses", "CphUp_analyses_tmp", "imgs", "ORA", str_interp("dotplot_GO_BP_CphUp_ISC_${direction}.pdf")
+            ),
+            plot = dotplot, height = 8, width = 7.8
+        )
+        next()
+    }
+
+
+    # calculate similarity of remaining terms
+    simMatrix <- calculateSimMatrix(GO_BP_filtered$ID,
+        orgdb = "org.Dm.eg.db",
+        semdata = semdata,
+        ont = "BP",
+        method = "Rel"
+    )
+
+
+    reducedTerms <- reduceSimMatrix(simMatrix,
+        setNames(GO_BP_filtered$Combined.Score, GO_BP_filtered$ID),
+        threshold = 0.8,
+        orgdb = "org.Dm.eg.db"
+    )
+
+    # save treemap
+    pdf(here(
+        "scRNAseq", "analyses", "CphUp_analyses_tmp",
+        "imgs", "ORA", str_interp("treeplot_GO_BP_CphUp_ISC_${direction}.pdf")
+    ), width = 7.8, height = 6)
+    treemap_plot <- treemapPlot(reducedTerms, title = paste("ISC", direction))
+    dev.off()
+
+    # add the parent term back to the main df:
+    GO_BP_filtered <- left_join(GO_BP_filtered, reducedTerms %>% dplyr::select(ID = go, parentTerm)) %>% tidyr::drop_na()
+
+    # collapse the dataframe to one row per parent term
+    GO_BP_collapsed <- GO_BP_filtered %>%
+        group_by(parentTerm) %>%
+        summarise(mean_zscore = sum(Combined.Score), n = n()) %>%
+        arrange(mean_zscore) %>%
+        ungroup() %>%
+        mutate(parentTerm = lapply(
+            parentTerm,
+            function(x) {
+                paste(strwrap(x, width = 50), collapse = "\n")
+            }
+        ) %>% unlist()) %>%
+        mutate(parentTerm = fct_reorder(parentTerm, mean_zscore)) %>%
+        mutate(n = as.numeric(n))
+
+    dotplot <- ggplot(GO_BP_collapsed, aes(x = mean_zscore, y = parentTerm)) +
+        geom_segment(aes(xend = 0, yend = parentTerm), size = 1.2) +
+        geom_point(aes(color = n), size = 5) +
+        theme_Publication_side_legend() +
+        ylab("Gene Set") +
+        xlab("Combined Enrichment Score") +
+        ggtitle("GO BP") +
+        viridis::scale_color_viridis(option = "C", discrete = FALSE) +
+        ggtitle(paste("ISC", direction)) +
+        labs(color = "Number of subterms")
+
+    ggsave(
+        filename = here(
+            "scRNAseq", "plots", "sup", str_interp("ExtFig11_ORA_dotplot_ISC_${direction}.pdf")
+        ),
+        plot = dotplot, height = 10, width = 11
+    )
+}
+```
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+
+

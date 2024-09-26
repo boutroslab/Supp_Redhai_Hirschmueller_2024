@@ -34,9 +34,7 @@ source(here("helper_functions.R"))
 ```
 
 
-### Coarse Annotation
-Do the differential expression for a very coarse annotation (just 3 celltypes).
-
+### Progenitors
 ```{r}
 seurat <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
 seurat$VFC_2 <- ifelse(seurat$VFC_2 == 0, "ctrl_like", "notch_like")

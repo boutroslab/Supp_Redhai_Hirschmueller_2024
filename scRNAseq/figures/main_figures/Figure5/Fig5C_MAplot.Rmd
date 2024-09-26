@@ -1,0 +1,121 @@
+---
+title: "Figure 5 MA plots"
+author: "by Nick Hirschmüller"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = FALSE)
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(ggrepel)
+library(Seurat)
+library(ggpubr)
+library(cowplot)
+library(viridis)
+```
+
+
+```{r}
+interesting_genes <- c("E(spl)malpha-BFM", "klu", "Dl", "Swim", "E(spl)mbeta-HLH", "Myc", "spdo", "sli", "crol", "endos", "arm", "msi", "Non1", "mnb", "sima", "Mad", "path", "Egfr", "mira", "EcR", "N", "mip40", "CycA", "InR", "Dp", "esg", "kuz", "kibra", "Cdc7", "grp", "Pdi", "Cph", "sc")
+
+integrated  <- readRDS(here::here("output","RNAi_experiments_integrated.rds"))
+
+notchRNAi <- integrated[, integrated$perturbation %in% c("NotchRNAi", "ctrl")]
+notchCphRNAi <- integrated[, integrated$perturbation %in% c("NotchCphRNAi", "ctrl")]
+
+MAST_diff_expr_NotchRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchRNAi")
+
+MAST_diff_expr_NotchCphRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchCphRNAi")
+
+differentially_expressed_genes <- bind_rows(MAST_diff_expr_NotchCphRNAi_ISC_EEP, MAST_diff_expr_NotchRNAi_ISC_EEP)
+
+#Rename CG9650 to Cph
+differentially_expressed_genes <- differentially_expressed_genes %>% mutate(gene = ifelse(gene == "CG9650", "Cph", gene))
+
+mean_NotchRNAi_expression <- rowMeans(notchRNAi@assays$RNA@data) %>% enframe(name = "gene",value="avg_expr") %>% mutate(condition ="NotchRNAi")
+mean_NotchCphRNAi_expression <- rowMeans(notchCphRNAi@assays$RNA@data) %>% enframe(name = "gene",value="avg_expr") %>% mutate(condition ="NotchCphRNAi")
+
+differentially_expressed_genes <- differentially_expressed_genes %>% 
+    left_join(., mean_NotchRNAi_expression, by=c("gene","condition")) %>% 
+    left_join(., mean_NotchCphRNAi_expression, by=c("gene","condition")) %>%
+    mutate(avg_expr = coalesce(avg_expr.x, avg_expr.y)) %>%
+    select(-avg_expr.x, -avg_expr.y)
+
+
+
+
+log2fc_threshold = 0.2
+pvalue_threshold = 0.05
+
+p <- differentially_expressed_genes %>% 
+  mutate(condition = factor(condition, levels = c("NotchRNAi", "NotchCphRNAi"))) %>% 
+    mutate(p_val_adj = ifelse(p_val_adj==0, 10e-320, p_val_adj)) %>% 
+    mutate(is_interesting = ifelse(
+      p_val_adj < pvalue_threshold &
+      gene %in% interesting_genes, "interesting gene", "not interesting gene")
+    ) %>% 
+    mutate(regulated = case_when(
+     avg_log2FC < -log2fc_threshold & p_val_adj < pvalue_threshold ~ "downregulated",
+     avg_log2FC > log2fc_threshold & p_val_adj < pvalue_threshold ~ "upregulated",
+     T ~ "not significant"
+    )) %>% 
+    mutate(color = case_when(
+      is_interesting == "interesting gene" ~ "interesting",
+      regulated == "downregulated" ~ "downregulated not interesting",
+      regulated == "upregulated" ~ "upregulated not interesting", 
+      regulated == "not significant" ~ "not significant"
+    )) %>%
+    arrange(desc(is_interesting), desc(p_val_adj)) %>% 
+    ggplot(aes(x=avg_log2FC, y=avg_expr, label = case_when(
+      gene %in% interesting_genes & p_val_adj < pvalue_threshold ~ gene,
+      T ~ ""))) + 
+    geom_point(aes(fill = regulated, colour = color, ), shape = 21, alpha = 0.7) + 
+    scale_fill_manual(values = c("#629dff","gray", "#f7766d")) +
+    scale_color_manual(values = c("#629dff","black", "gray", "#f7766d")) +
+    geom_vline(xintercept = 0, linetype="dashed") +
+    geom_text_repel(min.segment.length = 0, max.overlaps = Inf, box.padding = 0.25) +
+    facet_wrap(facets = vars(condition), ncol = 2) +
+    theme_cowplot() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) + # Explicitly setting limits
+    theme(legend.position = "none")+
+    ylab("mean logcounts per gene")+
+    xlab("log2FC")
+
+p
+
+ggsave(
+    plot = p,
+    filename = here::here("scRNAseq", "plots", "main", "Fig5C_MA_plot.pdf"),
+    width = 6.5,
+    height = 4.2,
+    scale=2
+)
+
+```
+
+```{r}
+sessionInfo()
+```
+

@@ -1,0 +1,77 @@
+---
+title: "Figure 5 Allovial Plot"
+author: "Erica Valentini, modified by Nick Hirschmüller"
+date: "2024-09-05"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = FALSE)
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(Seurat)
+library(ggalluvial)
+
+integrated  <- readRDS(here::here("output","RNAi_experiments_integrated.rds"))
+integrated <- integrated[, integrated$perturbation != "CphUp"]
+integrated <- integrated[, integrated$celltype_manual != "MT"]
+```
+
+
+## Alluvial plot
+```{r celltypes}
+cell_types <- integrated@meta.data %>% 
+    mutate(tmp_celltype = ifelse(high_res_annotation == "EEP","EEP", celltype_manual)) %>% 
+    group_by(perturbation, tmp_celltype) %>% 
+    tally() 
+
+celltype_colors = c("#d3534d", "#f8adb0", "#b388bd", "#197383", "#4e9acb", "#7bcfe2", "#e2cb88", "#c6b92f", "#218d44", "#81c579", "#ea9e59", "#585858")
+celltype_order = c("ISC", "EEP", "EB", "dEC", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT")
+
+names(celltype_colors) <- celltype_order
+
+p <- cell_types %>%
+  group_by(perturbation , tmp_celltype) %>% 
+  summarise(n_cells = sum(n)) %>%  
+  left_join(cell_types %>% group_by(perturbation) %>% summarise(total_cells = sum(n))) %>%
+  mutate(cell_percentage = round((n_cells/total_cells)*100, digits = 1)) %>% 
+  ungroup() %>% 
+  select(perturbation , tmp_celltype, cell_percentage) %>% 
+  mutate(perturbation  = factor(perturbation , levels = c("NotchRNAi", "ctrl", "NotchCphRNAi"))) %>% 
+  ggplot(aes(x=perturbation , y=cell_percentage, alluvium = tmp_celltype, stratum = tmp_celltype, fill = tmp_celltype)) +
+  geom_flow(stat = "alluvium", lode.guidance = "frontback", color="darkgray") +
+  geom_stratum() +
+    scale_y_continuous(expand = expansion(mult=c(0,0)))+
+  scale_fill_manual(values = celltype_colors) +
+  ggtitle("Percentage number of cells") +
+  cowplot::theme_cowplot()
+
+ggsave(
+    plot = p,
+    filename = here::here("scRNAseq", "plots", "main", "Fig5B_alluvial_plot.pdf"),
+    width = 4.2,
+    height = 3,
+    scale=1.3
+)
+```
+
+
+```{r}
+sessionInfo()
+```
+

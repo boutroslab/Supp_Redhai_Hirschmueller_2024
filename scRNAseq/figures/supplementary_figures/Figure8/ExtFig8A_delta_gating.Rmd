@@ -1,0 +1,97 @@
+---
+title: "Sup Figure 8 Dl gating"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+#######################################
+# scute expression depending on delta #
+#######################################
+seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+seurat_isc <- seurat[, seurat$celltype_manual == "ISC"]
+seurat_isc@meta.data %>% head()
+
+# its a bit difficult becuase delta expression is hallmark of ISCs...
+# we will define high delta expression as top 75percentile and low delta expression as lower 25 percentile
+delta_classification <- lapply(setNames(unique(seurat$perturbation), unique(seurat$perturbation)), function(perturbation) {
+    tmp <- seurat[, seurat$perturbation == perturbation & seurat$celltype_manual == "ISC"]
+    stats <- summary(tmp@assays$RNA@data["Dl", ])
+    print(stats)
+
+    tmp@assays$RNA@data["Dl", ] %>%
+        enframe(name = "barcode", value = "expression") %>%
+        mutate(Delta_status = case_when(
+            expression >= stats["3rd Qu."] ~ "high",
+            expression <= stats["1st Qu."] ~ "low",
+            T ~ "medium"
+        ))
+}) %>% bind_rows()
+
+stopifnot(all(delta_classification$barcode == Cells(seurat_isc)))
+seurat_isc$Delta_status <- delta_classification$Delta_status
+
+# we are only interested in high vs low
+seurat_isc_subset <- seurat_isc[, seurat_isc$Delta_status %in% c("low", "high")]
+seurat_isc_subset$Delta_status <- factor(seurat_isc_subset$Delta_status, levels=c("low","high"))
+Idents(seurat_isc_subset) <- seurat_isc_subset$Delta_status
+markers <- FindMarkers(seurat_isc_subset,
+                       ident.1 = "high",
+                       ident.2 = "low",
+                       test.use = "MAST") %>% rownames_to_column("gene")
+
+p <- FetchData(seurat_isc_subset, c("Delta_status", "sc")) %>%
+    ggplot(., aes(x = Delta_status, y = sc, color = Delta_status, fill = Delta_status)) +
+    geom_jitter(size = 0.65, stroke = 0.4, width = 0.2, shape = 21) +
+    geom_violin(
+        mapping = aes(x = Delta_status, y = sc, color = Delta_status), fill = NA,
+        width = 0.4, trim = TRUE, scale = "width", inherit.aes = F, show.legend = F, color = "black"
+    ) +
+    theme_Publication_side_legend() +
+    NoLegend() +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    stat_summary(
+        fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
+        aes(group = Delta_status), position = position_dodge(width = 0.9)
+    ) +
+    ylab("sc expression\n(logcounts)") +
+    xlab("Delta expression status") +
+    scale_color_manual(values = c("#f9cb67", "#996c09")) +
+    scale_fill_manual(values = alpha(c("#f9cb67", "#996c09"), 0.3)) +
+    ggtitle("Differentiation potential") +
+    ggsignif::geom_signif(
+        comparisons = list(c("high", "low")),
+        map_signif_level = TRUE, textsize = 6, color = "black"
+    ) +
+    guides(color = guide_legend(override.aes = list(size = 2, stroke = 0, shape = 16))) # Custom legend
+
+p
+ggsave(
+    plot = p,
+    width = 2,
+    height = 2,
+    filename = here("scRNAseq","plots", "sup", "ExtFig8A_sc_expression_ISC_delta.pdf"),
+    scale = 2
+)
+```

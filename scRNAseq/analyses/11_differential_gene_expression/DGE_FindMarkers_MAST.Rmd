@@ -1,0 +1,105 @@
+---
+title: "Differential gene expression analysis for RNAi data using FindMarkers"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+For NotchRNAi and NotchRNAi+CphRNAi we only have one replicate so cant do pseudobulk... instead use the conventional FindMarkers to get an idea. Previous reports have shown that this leads to many false positives, so interpretation of p values should be done with care!
+
+We will do the differential expression for mulitple populations:
+ISC
+EB
+EEP
+ISC+EEP
+ISC+EEP+EB
+
+And also for multiple contrasts: 
+NotchRNAi vs ctrl
+NotchRNAi+CphRNAi vs ctrl
+NotchRNAi vs NotchRNAi+CphRNAi
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(here)
+library(patchwork)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+
+seurat <- readRDS(here("output", "Ctrl_Notch_NotchCphRNAi_integrated_scent.rds"))
+DefaultAssay(seurat) <- "RNA"
+```
+
+
+### Run Find Markers
+
+```{r}
+celltypes <- list(
+    c("ISC","EB"),
+    c("ISC"),
+    c("EB"),
+    c("EEP"),
+    c("ISC", "EEP"),
+    c("ISC", "EEP", "EB")
+)
+
+comparisions <- list(
+    c("NotchRNAi", "ctrl"),
+    c("NotchCphRNAi", "ctrl"),
+    c("NotchRNAi", "NotchCphRNAi")
+)
+
+for (celltype in celltypes) {
+    celltypes_string <- paste(celltype, collapse = "_")
+    print(celltypes_string)
+    tmp_seurat <- seurat[, seurat$high_res_annotation %in% celltype]
+    DefaultAssay(tmp_seurat) <- "RNA"
+    Idents(tmp_seurat) <- tmp_seurat$perturbation
+    for (comp in comparisions) {
+        print(str_interp("Running comparision ${comp[1]} vs ${comp[2]}"))
+        if(all(celltype == "EEP")) {
+            if ("NotchCphRNAi" %in% comp){
+                print("skipping")
+                next()
+            }
+        }
+        result <- FindMarkers(
+            tmp_seurat,
+            ident.1 = comp[1],
+            ident.2 = comp[2],
+            test.use = "MAST", # use MAST to account for cellular detection rate
+            logfc.threshold = 0.01, # this increases runtime, and marginally increases p values.
+            min.pct = 0.01
+        ) %>% rownames_to_column("gene") %>% 
+            mutate(celltype=celltypes_string) %>% 
+            mutate(comparision = str_interp("${comp[1]}_vs_${comp[2]}"))
+        
+        dir.create(here("output","differential_expression","FindMarkers_MAST",celltypes_string), showWarnings = FALSE)
+        data.table::fwrite(result, 
+                           file = here("output","differential_expression","FindMarkers_MAST",celltypes_string, 
+                                       str_interp("${comp[1]}_vs_${comp[2]}_${celltypes_string}_MAST.tsv")),
+                           sep="\t",
+                           row.names = F)
+    }
+}
+
+
+```
+
+
+
+```{r}
+sessionInfo()
+```
+

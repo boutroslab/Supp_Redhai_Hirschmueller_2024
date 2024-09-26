@@ -1,0 +1,120 @@
+---
+title: "Regional prediction"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+```{r}
+library(tidyverse)
+library(patchwork)
+library(data.table)
+library(Seurat)
+library(here)
+library(RColorBrewer)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+seurat$region_prediction <- ifelse(seurat$region_prediction == "region prediction not available",
+    NA_character_,
+    seurat$region_prediction
+)
+
+ctrl <- seurat[, seurat$perturbation == "ctrl"]
+notch <- seurat[, seurat$perturbation == "notch"]
+
+ctrl_plot <- new_dimplot(ctrl, "region_prediction", size = 0.05, shape = 19, stroke = 0.25, alpha = 1) +
+    scale_y_reverse() +
+    scale_x_reverse() +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    scale_color_manual(values = brewer.pal(5, "Set2"), name = "Predicted\nRegion") +
+    ggtitle("Control")
+
+legend <- ggpubr::get_legend(ctrl_plot) %>%
+    ggplotify::as.ggplot()
+
+notch_plot <- new_dimplot(notch, "region_prediction", size = 0.05, shape = 19, stroke = 0.25, alpha = 1) +
+    scale_y_reverse() +
+    scale_x_reverse() +
+    small_axis("UMAP ", fontsize = 5, arrow_length = 17) +
+    scale_color_manual(values = brewer.pal(5, "Set2"), name = "Predicted\nRegion") +
+    ggtitle("Notch KO")
+
+
+combined_plots <- wrap_plots(ctrl_plot + NoLegend(),
+    notch_plot + NoLegend(),
+    legend,
+    nrow = 1
+) +
+    plot_layout(
+        widths = c(1, 1, 0.3),
+        heights = c(1, 1, 1)
+    )
+
+
+combined_plots %>%
+    ggsave(
+        plot = .,
+        file = here("scRNAseq","plots", "sup", "ExtFig2D_region_prediction.pdf"),
+        width = 6.2,
+        height = 3.3,
+        units = "in",
+    )
+```
+
+
+## Focus on EEs
+```{r}
+ee <- seurat[, seurat$celltype_manual == "EE"]
+
+
+# this is fraction of TOTAL EEs
+p_total <- ee@meta.data %>%
+    group_by(perturbation, region_prediction, high_res_annotation) %>%
+    tally() %>%
+    left_join(., ee@meta.data %>% group_by(perturbation) %>% tally(n = "n_total")) %>%
+    mutate(fraction = n / n_total) %>%
+    rbind(., data.frame(
+        "perturbatino" = "notch",
+        "region_prediction" ="R3",
+        "high_res_annotation"="Tk-EE",
+        "n" = 0,
+        "n_total"=1,
+        "fraction"=0
+    )) %>% 
+    mutate(high_res_annotation = factor(high_res_annotation, levels = c("EEP", "classIII-EE", "AstC-EE", "Tk-EE"))) %>%
+    ggplot(., aes(x = region_prediction, y = fraction, fill = perturbation)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    ylab("Fraction") +
+    xlab("Predicted Region") +
+    theme_Publication_side_legend() +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+    facet_wrap(~high_res_annotation) +
+    scale_fill_manual(values = c(color_mapping[1], color_mapping[4]), breaks = c("ctrl","notch"))
+
+ggsave(plot=p_total,
+       filename =here("scRNAseq","plots", "sup", "ExtFig2E_region_prediction_EEs.pdf"),
+       width = 4, height = 3,scale=2)
+
+
+```
+
+
+
+```{r}
+
+```

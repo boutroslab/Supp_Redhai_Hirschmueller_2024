@@ -13,6 +13,10 @@ GEO_upload_scripts/
 GEO_submission_Chronophage_scRNA/
 ENA_upload_data/
 13_genes_influenced_by_cph/
+deprecated/
+
+renv/
+GEO_submission_Chronophage_CphUp/
 
 # Custom 2
 data/

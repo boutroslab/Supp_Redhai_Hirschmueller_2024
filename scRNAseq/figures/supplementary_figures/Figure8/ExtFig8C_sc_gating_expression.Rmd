@@ -1,0 +1,121 @@
+---
+title: "Sup Figure 8 Sc gating analysis"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+
+```{r load libraries}
+library(tidyverse)
+library(Seurat)
+library(patchwork)
+library(here)
+library(data.table)
+library(ggbeeswarm)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+
+### Check notch activity depending on scute expression status
+
+```{r}
+seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+
+# high sc expression correspond to simply "on" -> i.e. expresses something
+summary(FetchData(seurat, "sc")[, 1])
+
+seurat@meta.data$sc_expression <- ifelse(
+    seurat@assays$RNA@counts["sc", ] >= 1,
+    "high",
+    "low"
+) %>% factor(., levels = c("low", "high"))
+
+
+vln_plot_gene <- function(gene) {
+    FetchData(seurat[, seurat$high_res_annotation == "ISC"], c("sc_expression", gene)) %>%
+        ggplot(., aes(x = sc_expression, y = !!sym(gene), color = sc_expression, fill = sc_expression)) +
+        geom_violin(
+            mapping = aes(x = sc_expression, y = !!sym(gene), color = sc_expression),
+            adjust = 0.9, trim = TRUE, scale = "width", inherit.aes = F, show.legend = F,
+            linewidth = 0.5
+        ) +
+        geom_quasirandom(size = 0.3, stroke = 0.2, bandwidth = 1, shape = 21, dodge.width = 0.9) +
+        theme_Publication_side_legend() +
+        NoLegend() +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+        stat_summary(
+            fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
+            aes(group = sc_expression), position = position_dodge(width = 0.9)
+        ) +
+        ylab(str_interp("${gene} expression\n(logcounts)")) +
+        xlab("sc expression status") +
+        scale_color_manual(values = c("#5aba6f", "#077a20")) +
+        scale_fill_manual(values = alpha(c("#5aba6f", "#077a20"), 0.3)) +
+        ggsignif::geom_signif(
+            comparisons = list(c("high", "low")),
+            map_signif_level = TRUE, textsize = 6, color = "black"
+        ) +
+        guides(color = guide_legend(override.aes = list(size = 2, stroke = 0, shape = 16))) # Custom legend
+}
+
+seurat_iscs <- seurat[, seurat$high_res_annotation == "ISC"]
+
+
+p <- FetchData(seurat_iscs, c("sc_expression", "CycE", "CycA", "E(spl)malpha-BFM","klu")) %>%
+    rownames_to_column("id") %>% 
+    pivot_longer(-c(id, sc_expression)) %>% 
+        ggplot(., aes(x = sc_expression, y = value, color = sc_expression, fill = sc_expression)) +
+        geom_violin(
+            mapping = aes(x = sc_expression, y = value, color = sc_expression),
+            adjust = 0.9, trim = TRUE, scale = "width", inherit.aes = F, show.legend = F,
+            linewidth = 0.5
+        ) +
+        geom_jitter(size = 0.3, stroke = 0.2,width = 0.1) +
+        theme_Publication() +
+        NoLegend()+
+        scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+        stat_summary(
+            fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
+            aes(group = sc_expression), position = position_dodge(width = 0.9)
+        ) +
+        ylab(str_interp("Expression\n(logcounts)")) +
+        xlab("sc expression status") +
+        facet_wrap(~name, scales = "free_y",ncol=2)+
+        scale_color_manual(values = c("#5aba6f", "#077a20")) +
+        scale_fill_manual(values = alpha(c("#5aba6f", "#077a20"), 0.3)) +
+        ggsignif::geom_signif(
+            comparisons = list(c("high", "low")),
+            map_signif_level = TRUE, textsize = 6, color = "black"
+        ) +
+        guides(color = guide_legend(override.aes = list(size = 2, stroke = 0, shape = 16))) # Custom legend
+
+p
+
+ggsave(
+    plot = p,
+    width = 3.5,
+    height = 3.5,
+    filename = here("scRNAseq","plots", "sup", "ExtFig8C_sc_gating_expression.pdf"),
+    scale = 2
+)
+
+```
+
+
+
+```{r}
+sessionInfo()
+```

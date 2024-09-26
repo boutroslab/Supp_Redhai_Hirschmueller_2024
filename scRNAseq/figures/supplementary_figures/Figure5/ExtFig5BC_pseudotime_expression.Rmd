@@ -1,0 +1,124 @@
+---
+title: "Sup Fig 5 pseudotime expression"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(here)
+library(SingleCellExperiment)
+library(tradeSeq)
+library(RColorBrewer)
+library(circlize)
+library(ComplexHeatmap)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+### Introduction
+We want to plot the expression trajectory for 2 different genes in the same plot along the same lineage (and same condition).
+
+```{r}
+smoothers_data <- readRDS(here("output", "plotSmoothers_data.rds"))
+ss <- readRDS(here("output", "tradeSeq_fit_condiments_strict.rds"))
+sshot <- slingshot::SlingshotDataSet(ss)
+
+
+
+plot_dual_pseudotime <- function(gene1, gene2, extracted_lineages_object, sshot_dataset, perturbation = "notch", secondary_color ="#4F7AD0") {
+    linetypes <- c("solid", "dashed")
+    colors <- c("#EF6F1B", secondary_color)
+
+
+    # create this dataframe. its faster to create names like this than to use sapply within mutate.
+    name_mapping <- data.frame(
+        trajectory = c(1, 2, 3, 4),
+        trajectory_name = c(
+            paste(sshot_dataset@lineages[[1]], collapse = " -> "),
+            paste(sshot_dataset@lineages[[2]], collapse = " -> "),
+            paste(sshot_dataset@lineages[[3]], collapse = " -> "),
+            paste(sshot_dataset@lineages[[4]], collapse = " -> ")
+        )
+    )
+
+    per_gene_info <- sapply(c(gene1, gene2), simplify = FALSE, function(gene) {
+
+        points_df <- extracted_lineages_object[[gene]]$df_points %>%
+            filter(grepl("Lineage 4", lineage)) %>%
+            mutate(perturbation = ifelse(grepl("ctrl", lineage), "ctrl", "notch"))%>% 
+            mutate(gene=gene)
+        return(list("points_df" = points_df))
+    })
+
+    combined_points <- lapply(per_gene_info, function(x) x[["points_df"]]) %>% bind_rows() %>% 
+        filter(perturbation == !!perturbation)
+    
+
+    # do the actual plot
+    p <- ggplot() +
+        theme_Publication()+
+        geom_point(data=combined_points %>% sample_frac(size=0.7),  # so the plot is less croweded. the fit is done for the whole dataset
+                   mapping=aes(x = time, y = log1p(gene_count), color = gene),
+                   shape=21, alpha=0.3, size=1)+
+        geom_smooth(data=combined_points, mapping=aes(x = time, y = log1p(gene_count), color = gene),
+                    method="loess", se=FALSE)+
+        # geom_line(data = combined_curves, mapping=aes(x = time, y = log1p(gene_count), color = gene),linewidth = 0.9) +
+        scale_color_manual(values = colors) +
+        xlab("Pseudotime") +
+        ylab("Expression\n(logcounts)") +
+        ggtitle(paste0(perturbation, " Lineage 4: ISC->EEP->EE"))
+    return(p)
+}
+
+
+
+p <- plot_dual_pseudotime(
+    gene1="CG9650", 
+    gene2="pros",
+    perturbation = "ctrl",
+    extracted_lineages_object = smoothers_data,
+    sshot_dataset = sshot
+    )
+
+ggsave(
+    plot = p,
+    file = here("scRNAseq","plots", "sup", "Fig5B_pseudotime_expression_ctrl.pdf"),
+    width = 6,
+    height = 5,
+    units = "in",
+    scale = 1.4
+)
+
+
+p <- plot_dual_pseudotime(
+    gene1="CG9650", 
+    gene2="pros",
+    perturbation = "notch",
+    extracted_lineages_object = smoothers_data,
+    sshot_dataset = sshot
+    )
+
+ggsave(
+    plot = p,
+    file = here("scRNAseq","plots", "sup", "Fig5B_pseudotime_expression_notch.pdf"),
+    width = 6,
+    height = 5,
+    units = "in",
+    scale = 1.4
+)
+```
+
+
+```{r}
+sessionInfo()
+```
+

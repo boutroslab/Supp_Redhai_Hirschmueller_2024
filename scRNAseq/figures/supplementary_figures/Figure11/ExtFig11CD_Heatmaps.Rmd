@@ -1,0 +1,100 @@
+---
+title: "Supp Fig 11 Cph Up Heatmaps"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(enrichR)
+library(viridis)
+library(Seurat)
+library(ComplexHeatmap)
+library(circlize)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+## Create Heatmaps
+```{r}
+seurat <- readRDS(here("output", "RNAi_experiments_integrated.rds"))
+seurat <- seurat[, seurat$perturbation %in% c("ctrl", "CphUp")]
+
+seurat <- seurat[, seurat$high_res_annotation == "ISC"]
+sce <- as.SingleCellExperiment(seurat)
+
+sce$sample_id <- factor(sce$orig.ident.unique, levels = sce$orig.ident.unique %>% unique())
+sce$cluster_id <- "ISC"
+sce$group_id <- factor(sce$perturbation, levels = sce$perturbation %>% unique())
+
+# batch correct data
+whole_pseudobulk <- glmGamPoi::pseudobulk(sce,
+    group_by = vars(sample_id, cluster_id, group_id)
+)
+
+vst_data <- DESeq2::vst(counts(whole_pseudobulk))
+vst_corrected <- limma::removeBatchEffect(vst_data,
+    batch = substr(colnames(vst_data), 1, 4)
+)
+
+
+
+
+terms_of_interest <- c(
+    "autophagic cell death",
+    "regulation of autophagy",
+    "autophagosome assembly",
+    "regulation of apoptotic process",
+    "positive regulation of apoptotic process",
+    "positive regulation of programmed cell death")
+
+for (term in terms_of_interest){
+    genes_of_interest <- enrichr_res$up$GO_Biological_Process_2018 %>% 
+        filter(grepl(str_interp("^${term}"), Term)) %>% 
+        pull(Genes) %>% 
+        str_split(., ";") %>% 
+        unlist()
+    
+    mean_ctrl_expr <- vst_corrected[, c(1, 2)] %>% rowMeans()
+    logFC_data <- vst_corrected - mean_ctrl_expr
+    col_fun <- colorRamp2(c(-2, 0, 2), c("#02fdff", "steelblue", "red"))
+    
+    
+    column_ha <- HeatmapAnnotation(
+        batch = c("Replicate 1", "Replicate 2", "Replicate 1", "Replicate 2"),
+        col = list(batch = c("Replicate 1" = "#41C853", "Replicate 2" = "#f6b999"))
+    )
+    
+    
+    hmap <- Heatmap(logFC_data[genes_of_interest, ],
+        cluster_columns = FALSE,
+        show_row_dend = FALSE,
+        cluster_rows = TRUE,
+        top_annotation = column_ha,
+        column_split = factor(c("Ctrl", "Ctrl", "CphUp", "CphUp"), levels=c("Ctrl","CphUp")),
+        show_column_names = FALSE,
+        name = "logFC",
+        col = col_fun)
+    
+    pdf(here("scRNAseq", "plots", "sup", str_interp("ExtFig11_ORA_heatmap${term}.pdf")),
+        width = 10/1.5, height = 7.7/1.5)
+    draw(hmap, column_title  = term)
+    dev.off()
+}
+```
+
+
+```{r}
+sessionInfo()
+```
+

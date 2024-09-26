@@ -1,0 +1,63 @@
+---
+title: "Figure 4 Highlight coexpression of sc and Cph via density plot"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(Nebulosa)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+# load the integrated dataset
+integrated <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+```
+
+
+```{r}
+plots<- plot_density(integrated, c("CG9650","sc"), joint = T, reduction="umap",size=0.01, shape=19, combine = F)
+
+plot_data <-plots[[3]][["data"]]
+
+p <- ggplot(plot_data, aes(UMAP_1, UMAP_2, color=feature, size=feature))+
+    geom_point(shape = 19, stroke = 0.01) +
+    viridis::scale_color_viridis()+
+    scale_size(range = c(0.1, 0.5), guide = 'none') + # Adjust the size range here
+    scale_x_reverse()+
+    scale_y_reverse()+
+    small_axis("UMAP ")+
+    labs(color="Joint expression\ndensitiy", size=NA)+
+    ggtitle("Joint Cph and scute expression")
+
+
+
+ggsave(
+    filename = here("scRNAseq","plots", "main", "Fig4A_sc_cph_expression_density.pdf"),
+    width = 4, height = 3.5,
+    plot = p,
+    scale=1.5
+)
+
+```
+
+```{r}
+sessionInfo()
+```

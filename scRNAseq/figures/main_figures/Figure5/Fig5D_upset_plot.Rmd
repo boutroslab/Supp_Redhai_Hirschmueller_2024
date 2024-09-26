@@ -1,0 +1,100 @@
+---
+title: "Figure 5 Upset plots"
+author: "Erica Valentini, modified by Nick Hirschmüller"
+date: "2024-09-05"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = FALSE)
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(Seurat)
+library(UpSetR)
+library(cowplot)
+library(viridis)
+```
+
+```{r}
+MAST_diff_expr_NotchRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchRNAi")
+
+MAST_diff_expr_NotchCphRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchCphRNAi")
+
+differentially_expressed_genes <- bind_rows(MAST_diff_expr_NotchCphRNAi_ISC_EEP, MAST_diff_expr_NotchRNAi_ISC_EEP)
+```
+
+
+```{r}
+log2fc_threshold = 0.2
+pvalue_threshold = 0.05
+
+
+upregulated_notchRNAi <- differentially_expressed_genes %>% 
+    filter(avg_log2FC > log2fc_threshold, 
+           p_val_adj < pvalue_threshold, 
+           condition == "NotchRNAi") %>% 
+    pull(gene)
+
+
+downregulated_notchRNAi <- differentially_expressed_genes %>% 
+    filter(avg_log2FC <  -log2fc_threshold, 
+           p_val_adj < pvalue_threshold, 
+           condition == "NotchRNAi") %>% 
+    pull(gene)
+
+
+upregulated_notchCphRNAi <- differentially_expressed_genes %>% 
+    filter(avg_log2FC > log2fc_threshold, 
+           p_val_adj < pvalue_threshold, 
+           condition == "NotchCphRNAi") %>% 
+    pull(gene)
+
+
+downregulated_notchCphRNAi <- differentially_expressed_genes %>% 
+    filter(avg_log2FC <  -log2fc_threshold, 
+           p_val_adj < pvalue_threshold, 
+           condition == "NotchCphRNAi") %>% 
+    pull(gene)
+
+
+
+listInput <- list(up_notchRNAi = upregulated_notchRNAi, down_notchRNAi = downregulated_notchRNAi, up_notchCphRNAi = upregulated_notchCphRNAi, down_notchCphRNAi = downregulated_notchCphRNAi)
+
+for (element in seq(1:length(listInput))) {
+  print(paste0(names(listInput)[[element]],": ", length(listInput[[element]])))
+}
+
+upset_plot <- upset(fromList(listInput), set_size.show = TRUE, order.by = "freq")
+
+pdf(here::here("scRNAseq", "plots", "main", "Fig5D_upset_plot.pdf"),
+    width=9, height = 9/1.21875)
+upset_plot
+dev.off()
+
+```
+
+```{r}
+sessionInfo()
+```
+

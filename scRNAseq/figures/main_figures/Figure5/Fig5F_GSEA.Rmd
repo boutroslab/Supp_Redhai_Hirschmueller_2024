@@ -1,0 +1,163 @@
+---
+title: "Fig 5 GSEA"
+author: "Nick Hirschmüller"
+date: "2024-09-05"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = FALSE)
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(cowplot)
+library(Seurat)
+library(clusterProfiler)
+library(viridis)
+source("plot_theme.R")
+```
+
+
+```{r}
+MAST_diff_expr_NotchRNAi_ISC_EEP <- data.table::fread(
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F
+) %>%
+    mutate(condition = "NotchRNAi")
+
+MAST_diff_expr_NotchCphRNAi_ISC_EEP <- data.table::fread(
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F
+) %>%
+    mutate(condition = "NotchCphRNAi")
+
+differentially_expressed_genes_isc_eep <- bind_rows(
+    MAST_diff_expr_NotchRNAi_ISC_EEP, MAST_diff_expr_NotchCphRNAi_ISC_EEP
+)
+```
+
+
+```{r}
+gene_sets <- readRDS(here::here("output", "gene_sets.rds"))
+hallmark <- gene_sets$hallmark %>% dplyr::select(term = pathway_name, genes = symbol)
+go_bp <- gene_sets$enrichR_GO_Biological_Process_2018
+
+ranked_NotchRNAi <- MAST_diff_expr_NotchRNAi_ISC_EEP %>%
+    select(gene, avg_log2FC) %>%
+    mutate(stat = avg_log2FC) %>%
+    arrange(-stat) %>%
+    select(gene, stat) %>%
+    deframe()
+
+gsea_NotchRNAi <- GSEA(ranked_NotchRNAi, TERM2GENE = rbind(hallmark, go_bp), pvalueCutoff = 0.15)
+
+
+ranked_NotchCphRNAi <- MAST_diff_expr_NotchCphRNAi_ISC_EEP %>%
+    select(gene, avg_log2FC) %>%
+    mutate(stat = avg_log2FC) %>%
+    arrange(-stat) %>%
+    select(gene, stat) %>%
+    deframe()
+
+gsea_NotchCphRNAi <- GSEA(ranked_NotchCphRNAi, TERM2GENE = rbind(hallmark, go_bp), pvalueCutoff = 0.15)
+
+
+
+
+combined <- rbind(
+    gsea_NotchRNAi@result %>% mutate(condition = "NotchRNAi"),
+    gsea_NotchCphRNAi@result %>% mutate(condition = "NotchCphRNAi")
+) %>% select(ID, setSize, NES, pvalue, p.adjust, condition)
+
+opposing_effects <- rbind(
+    inner_join(
+        gsea_NotchRNAi@result %>% mutate(condition = "NotchRNAi") %>% filter(NES > 0) %>% select(ID, setSize, NES, pvalue, p.adjust, condition),
+        gsea_NotchCphRNAi@result %>% mutate(condition = "NotchCphRNAi") %>% filter(NES < 0) %>% select(ID, setSize, NES, pvalue, p.adjust, condition),
+        by = "ID",
+        suffix = c("NotchRNAi", "NotchCphRNAi")
+    ),
+    inner_join(
+        gsea_NotchRNAi@result %>% mutate(condition = "NotchRNAi") %>% filter(NES < 0) %>% select(ID, setSize, NES, pvalue, p.adjust, condition),
+        gsea_NotchCphRNAi@result %>% mutate(condition = "NotchCphRNAi") %>% filter(NES > 0) %>% select(ID, setSize, NES, pvalue, p.adjust, condition),
+        by = "ID",
+        suffix = c("NotchRNAi", "NotchCphRNAi")
+    )
+)
+
+terms_to_visualize <- c(
+    "HALLMARK_MYC_TARGETS_V1",
+    "HALLMARK_MTORC1_SIGNALING",
+    "HALLMARK_E2F_TARGETS",
+    "HALLMARK_DNA_REPAIR",
+    "HALLMARK_TNFA_SIGNALING_VIA_NFKB",
+    "enrichR_GO_Biological_Process_2018_Notch signaling pathway (GO:0007219)",
+    "enrichR_GO_Biological_Process_2018_regulation of transcription initiation from RNA polymerase II promoter (GO:0060260)"
+)
+
+
+
+
+plot_df_NotchCphRNAi <- gsea_NotchCphRNAi@result %>% 
+    mutate(pathway = str_remove_all(ID, "HALLMARK_")) %>% 
+    mutate(pathway = str_remove_all(pathway, "enrichR_GO_Biological_Process_2018_")) %>% 
+    mutate(pathway = str_remove_all(pathway, "\\(GO:\\d+\\)")) %>% 
+    mutate(condition = "Notch+CphRNAi") %>% 
+    filter(ID %in% terms_to_visualize) 
+
+plot_df_NotchRNAi <- gsea_NotchRNAi@result %>% 
+    mutate(pathway = str_remove_all(ID, "HALLMARK_")) %>% 
+    mutate(pathway = str_remove_all(pathway, "enrichR_GO_Biological_Process_2018_")) %>% 
+    mutate(pathway = str_remove_all(pathway, "\\(GO:\\d+\\)")) %>% 
+    mutate(condition = "NotchRNAi") %>% 
+    filter(ID %in% terms_to_visualize) %>% 
+    arrange(-NES)
+
+
+combined_plot_df <- bind_rows(plot_df_NotchRNAi, plot_df_NotchCphRNAi)
+
+gsea_plot <- combined_plot_df %>% 
+    arrange(NES) %>%
+    mutate(condition = factor(condition, levels=c("NotchRNAi","Notch+CphRNAi"))) %>% 
+    mutate(pathway = factor(pathway, levels=plot_df_NotchRNAi$pathway)) %>% 
+    ggplot(., aes(x = NES, y = pathway, color = p.adjust, size = setSize)) + 
+    geom_point() + 
+    ylab("Gene sets") + 
+    scale_color_viridis(limits = c(0, 0.15), breaks = c(0, 0.05, 0.1, 0.15)) +  # Ensure 0.15 is included
+    scale_size(range = c(4, 7)) + # Adjust the size range here
+    geom_vline(xintercept = 0, linetype="dashed") +
+    coord_cartesian(clip = "off") +
+    cowplot::theme_cowplot() +
+    facet_wrap(~condition)
+
+gsea_plot
+
+ggsave(
+    plot = gsea_plot,
+    width = 10,
+    height = 5,
+    filename = here("scRNAseq","plots", "main","Fig5F_GSEA.pdf"),
+    scale = 1
+)
+```
+
+
+
+
+```{r}
+sessionInfo()
+```
+

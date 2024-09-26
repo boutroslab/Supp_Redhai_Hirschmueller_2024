@@ -1,0 +1,136 @@
+---
+title: "Supp Fig 4 Venn diagram to compare differential expression"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+Compare DGE results using MELD with the conventional pseudobulk approach
+
+```{r load libraries}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(RColorBrewer)
+library(VennDiagram)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+conventional_Progenitor <- fread(here("output", "differential_expression", "pseudobulk_coarse", "Progenitor", "edgeR_diff_expr.tsv"), data.table = F)
+conventional_EE <- fread(here("output", "differential_expression", "pseudobulk_coarse", "EE", "edgeR_diff_expr.tsv"), data.table = F)
+conventional_EC <- fread(here("output", "differential_expression", "pseudobulk_coarse", "EC", "edgeR_diff_expr.tsv"), data.table = F)
+
+
+upregulated <- list(
+    "Progenitors" = conventional_Progenitor %>% filter(p_adj < 0.05) %>% filter(logFC > 0) %>% pull(gene),
+    "EEs" = conventional_EE %>% filter(p_adj < 0.05) %>% filter(logFC > 0) %>% pull(gene),
+    "ECs" = conventional_EC %>% filter(p_adj < 0.05) %>% filter(logFC > 0) %>% pull(gene)
+)
+
+downregulated <- list(
+    "Progenitors" = conventional_Progenitor %>% filter(p_adj < 0.05) %>% filter(logFC < -0) %>% pull(gene),
+    "EEs" = conventional_EE %>% filter(p_adj < 0.05) %>% filter(logFC < -0) %>% pull(gene),
+    "ECs" = conventional_EC %>% filter(p_adj < 0.05) %>% filter(logFC < -0) %>% pull(gene)
+)
+```
+
+
+```{r}
+myCol <- brewer.pal(3, "Pastel1")
+
+#############################
+# for the upregulated genes #
+#############################
+
+tmp <- venn.diagram(
+    x = upregulated,
+    disable.logging = TRUE,
+    scaled = F,
+    scale = 0.3,
+    euler.d = FALSE,
+    filename = NULL,
+
+    # Circles
+    lwd = 2,
+    lty = "blank",
+    fill = myCol,
+
+    # Numbers
+    cex = 1.4,
+    fontface = "bold",
+    fontfamily = "sans",
+
+    # Set names
+    cat.cex = 1,
+    cat.dist = c(0.055, 0.055, 0.055),
+    cat.fontface = "bold",
+    cat.default.pos = "outer",
+    cat.fontfamily = "sans"
+)
+
+
+pdf(file = here("scRNAseq","plots", "sup", "ExtFig4E_venn_digaram_upregulated_progenitor_EC_EE_comparision.pdf"))
+grid.draw(tmp)
+grid.text("Sig. upregulated genes", x = 0.5, y = 1, gp = gpar(fontsize = 10, fontface = "bold"))
+dev.off()
+
+
+
+
+###############################
+# for the downregulated genes #
+###############################
+tmp <- venn.diagram(
+    x = downregulated,
+    disable.logging = TRUE,
+    scaled = F,
+    scale = 0.3,
+    euler.d = FALSE,
+    filename = NULL,
+
+    # Circles
+    lwd = 2,
+    lty = "blank",
+    fill = myCol,
+
+    # Numbers
+    cex = 1.4,
+    fontface = "bold",
+    fontfamily = "sans",
+
+    # Set names
+    cat.cex = 1,
+    cat.dist = c(0.055, 0.055, 0.055),
+    cat.fontface = "bold",
+    cat.default.pos = "outer",
+    cat.fontfamily = "sans"
+)
+
+
+
+pdf(file = here("scRNAseq","plots", "sup", "ExtFig4E_venn_digaram_downregulated_progenitor_EC_EE_comparision.pdf"))
+grid.draw(tmp)
+grid.text("Sig. downregulated genes", x = 0.5, y = 0.992, gp = gpar(fontsize = 10, fontface = "bold"))
+dev.off()
+```
+
+
+```{r}
+sessionInfo()
+```
+

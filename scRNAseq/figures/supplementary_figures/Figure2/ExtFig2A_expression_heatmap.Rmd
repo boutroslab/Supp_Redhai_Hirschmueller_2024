@@ -1,0 +1,177 @@
+---
+title: "Supp Figure 1 Expression heatmap"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(ComplexHeatmap)
+library(circlize)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+integrated <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+integrated@meta.data$celltype_manual <- ifelse(grepl("unk", integrated@meta.data$celltype_manual), "unk", integrated$celltype_manual)
+
+
+
+ctrl_subset <- integrated[, integrated$perturbation == "ctrl" & integrated$celltype_manual != "unk"]
+
+
+ctrl_subset$celltype_manual <- factor(ctrl_subset$celltype_manual, 
+                                     levels = 
+                                         c("ISC", "EB", "dEC", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT"))
+
+Idents(ctrl_subset) <- ctrl_subset$celltype_manual
+```
+
+
+```{r}
+marker_heatmap <- function(seurat, markers, celltype, group.by, cap_value = NULL) {
+    # plot a heatmap, where each column is one cell! The cells are grouped and split according to the cluster they are from
+
+    ordered_index <- order(seurat@meta.data[[group.by]])
+    c_split <- sort(seurat@meta.data[[group.by]])
+
+    if (!all(markers %in% rownames(seurat@assays$RNA))) {
+        mising_genes <- paste(markers[!markers %in% rownames(seurat@assays$RNA)], sep = ", ")
+        celltype <- celltype[markers %in% rownames(seurat@assays$RNA)]
+        markers <- markers[markers %in% rownames(seurat@assays$RNA)]
+        print(str_interp("Not all markers occur in the data matrix of the seurat object. Specifically, ${mising_genes} are missing. Removing it and continuing"))
+    }
+
+    # get counts and perform gene wise scaling
+    cnts_scaled <- as.matrix(seurat@assays$RNA[markers, ordered_index]) %>%
+        t() %>%
+        scale() %>%
+        t()
+
+
+
+    if (!is.null(cap_value)) {
+        message(str_interp("Zscores > |${cap_value}| are set to ${cap_value} (or -${cap_value})"))
+        changed_values <- sum(cnts_scaled > cap_value) + sum(cnts_scaled < -cap_value)
+        cnts_scaled[cnts_scaled > cap_value] <- cap_value
+        cnts_scaled[cnts_scaled < -cap_value] <- -cap_value
+        message(str_interp("This was the case for ${changed_values} values"))
+        col_fun <- colorRamp2(c(-cap_value, 0, cap_value), c("blue", "white", "red"))
+    } else {
+        col_fun <- colorRamp2(
+            breaks = c(min(cnts_scaled, na.rm = T), mean(cnts_scaled, na.rm = T), max(cnts_scaled, na.rm = T)),
+            colors = c("blue", "white", "red")
+        )
+    }
+
+    p <- Heatmap(cnts_scaled,
+        cluster_rows = F,
+        cluster_columns = F,
+        show_row_names = T,
+        show_column_names = F,
+        column_split = c_split,
+        row_split = celltype,
+        name = "Z-score",
+        col = col_fun,
+        row_gap = unit(0.5, "mm"),
+        column_gap = unit(0.5, "mm"),
+        border = "darkgrey",
+        column_title_gp = grid::gpar(fontsize = 5.5),
+        column_title_rot = 45,
+        row_title = NULL,
+        row_names_gp = grid::gpar(fontsize = 7),
+        use_raster = F,
+        show_heatmap_legend = F
+    )
+    return(p)
+}
+
+marker_table <- data.frame(
+    gene = c(
+        "alphaTry", "betaTry",
+        "nub",
+        "esg", "N",
+        "Dl",
+        "Vha100-4", "Vha16-1",
+        "pros", "7B2",
+        "PGRP-SC1b", "Jon65Ai",
+        "lambdaTry", "LManVI",
+        "thetaTry", "Npc2f",
+        "Smvt", "ct"
+    ),
+    celltype = c(
+        "aEC", "aEC",
+        "dEC",
+        "EB", "EB",
+        "ISC",
+        "Copper", "Copper",
+        "EE", "EE",
+        "LFC", "LFC",
+        "pEC", "pEC",
+        "mEC", "mEC",
+        "MT", "MT"
+    )
+)
+
+# for this visualization we remove the "unk" cells
+# furthermore, for all celltypes with more than 500 cells, we will randomly select 80% at most. Otherwise the heatmap is simply to wide
+ctrl_subset$celltype_manual %>% table()
+
+EBs_remove <- ctrl_subset@meta.data %>%
+    filter(celltype_manual == "EB") %>%
+    sample_frac(0.43) %>%
+    rownames()
+ISCs_remove <- ctrl_subset@meta.data %>%
+    filter(celltype_manual == "ISC") %>%
+    sample_frac(0.25) %>%
+    rownames()
+aEC_remove <- ctrl_subset@meta.data %>%
+    filter(celltype_manual == "aEC") %>%
+    sample_frac(0.35) %>%
+    rownames()
+dEC_remove <- ctrl_subset@meta.data %>%
+    filter(celltype_manual == "dEC") %>%
+    sample_frac(0.24) %>%
+    rownames()
+ctrl_subset <- ctrl_subset[, !Cells(ctrl_subset) %in% c(EBs_remove, ISCs_remove, aEC_remove, dEC_remove)]
+
+ctrl_subset$celltype_manual <- factor(ctrl_subset$celltype_manual,
+    levels = c("ISC", "EB", "dEC", "daEC", "aEC", "Copper", "mEC", "LFC", "pEC", "EE", "MT")
+)
+marker_table$celltype <- factor(marker_table$celltype, levels = c("ISC", "EB", "dEC", "daEC", "aEC", "Copper", "mEC", "LFC", "pEC", "EE", "MT"))
+
+p <- marker_heatmap(
+    seurat = ctrl_subset,
+    markers = marker_table$gene,
+    celltype = marker_table$celltype,
+    group.by = "celltype_manual",
+    cap_value = 4
+)
+
+pdf(here("scRNAseq","plots", "sup", "ExtFig2A_expression_heatmap_expression.pdf"), height = 3.3, width = 6)
+p
+dev.off()
+
+```
+
+
+```{r}
+sessionInfo()
+```
+
+
+

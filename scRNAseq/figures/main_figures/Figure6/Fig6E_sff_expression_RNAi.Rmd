@@ -1,0 +1,133 @@
+---
+title: "Figure 6 sff expression in RNAi dataset"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(ggsignif)
+library(ggtext)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+seurat <- readRDS(here("output", "RNAi_experiments_integrated.rds"))
+progenitors <- seurat[, seurat$high_res_annotation %in% c("ISC", "EEP", "EB")]
+progenitors <- progenitors[,progenitors$perturbation != "CphUp"]
+progenitors$tmp_celltype = "progenitors"
+
+progenitors$dummy <- case_when(
+    progenitors$perturbation == "ctrl" ~ "A",
+    progenitors$perturbation == "NotchRNAi" ~ "B",
+    progenitors$perturbation == "NotchCphRNAi" ~ "C",
+)
+progenitors$perturbation <- factor(progenitors$perturbation, levels=c("ctrl","NotchRNAi","NotchCphRNAi"))
+
+jitter_plot_fun <- function(srt, gene, population) {
+    mdata <- srt@meta.data[, c("tmp_celltype", "perturbation", "dummy")]
+    exp_data <- FetchData(srt, gene)
+    colnames(exp_data) <- gene
+    stopifnot(all(rownames(mdata) == rownames(exp_data)))
+
+    plot_data <- cbind(mdata, exp_data)
+    p <- ggplot(plot_data, aes(x = tmp_celltype, y = !!sym(gene))) +
+        geom_point(mapping = aes(color = perturbation, fill = perturbation), size = 0.65, stroke = 0.4, shape = 21, position = position_jitterdodge(dodge.width = 0.9)) +
+        geom_violin(
+            mapping = aes(color = dummy),
+            position = position_dodge(width = 0.9),
+            fill = NA,
+            adjust = 1, trim = TRUE,
+            scale = "width", show.legend = F,
+            width = 0.72 # adjust width so the violine does not stick out too much
+        ) +
+        theme_Publication_side_legend() %+%
+        theme(
+            axis.text.x = element_blank(),
+            axis.title.x = element_blank(),
+            legend.text = element_markdown(size = 15),
+            legend.title = element_text(size = 16)
+        ) +
+        ylab("Expression\n(logcounts)") +
+        guides(
+            color = guide_legend(
+                title = "Condition",
+                override.aes = list(size = 2, alpha = 1, shape = NULL),
+                hjust = 0
+            ),
+            fill = "none"
+        ) +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
+        stat_summary(fun = "mean", geom = "point", aes(group = perturbation), color = "black", size = 3, shape = 8, stroke = 0.95, position = position_dodge(width = 0.9)) +
+        scale_color_manual(
+            values = c("ctrl" = color_mapping[1], "NotchRNAi" = color_mapping[4], NotchCphRNAi = "#00ba38", A = "black", B = "black", C = "black"),
+            labels = c(
+                ctrl = "Control",
+                NotchRNAi = "*Notch*<sup><i>RNAi</i></sup>",
+                NotchCphRNAi = "*Cph*<sup><i>RNAi</i></sup>+*Notch*<sup><i>RNAi</i></sup>"
+            ),
+            limits = c("ctrl", "NotchRNAi", "NotchCphRNAi")
+        ) +
+        scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4], "#00ba38"), 0.4)) +
+        ggtitle(paste(population, gene)) +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.15)))
+
+
+    return(p)
+}
+
+
+g="sff"
+jitter_plot_fun(get(population), g, population)
+
+
+# Create an annotation dataframe
+annotation_df <- data.frame(
+    celltype = c("a", "b"),
+    y_position_ = c(3.4, 3.6), # Adjust as needed
+    xmin_ = c(0.7, 1),
+    xmax_ = c(1, 1.3),
+    label = c("***", "***")
+)
+
+
+population <- "progenitors"
+p <- jitter_plot_fun(get(population), g, population) +
+    geom_signif(
+        data = annotation_df,
+        aes(xmin = xmin_, xmax = xmax_, annotations = label, y_position = y_position_, group = celltype),
+        textsize = 6.5, manual = TRUE, vjust = 0,
+        inherit.aes = F
+    )
+
+
+ggsave(
+    plot = p,
+    file = here("scRNAseq","plots", "main", "Fig6E_sff_expression_progenitors_RNAi.pdf"),
+    width = 3.5,
+    height = 3,
+    units = "in",
+    scale = 1.4
+)
+```
+
+```{r}
+sessionInfo()
+```
+

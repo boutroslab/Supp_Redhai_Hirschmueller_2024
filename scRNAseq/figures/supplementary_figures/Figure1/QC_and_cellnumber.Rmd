@@ -46,9 +46,6 @@ ctrl_merged <- run_seurat_steps(ctrl_merged) %>%
         verbose = FALSE
     )
 
-
-
-
 ctrl_umap <- new_dimplot(ctrl_merged,
     feature = "orig.ident",
     size = 0.05,
@@ -102,7 +99,7 @@ plot <- wrap_plots(ctrl_umap, notch_umap, ncol = 2) +
 
 
 ggsave(plot,
-    filename = here("plots", "sup", "Fig1_Batch_UMAPs.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig1A_Batch_UMAPs.pdf"),
     width = 8, height = 4.5
 )
 ```
@@ -159,7 +156,7 @@ reads_per_cell <- FetchData(seurat, c("nCount_RNA", "orig.ident")) %>%
 plots <- wrap_plots(genes_per_cell, reads_per_cell, ncol = 2)
 
 ggsave(
-    filename = here("figures", "supplementary_figures", "plots", "QC_metrics_individual.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig1BC_QC_metrics.pdf"),
     plot = plots,
     width = 10,
     height = 4
@@ -167,52 +164,7 @@ ggsave(
 ```
 
 
-## plot each perturbation
-```{r}
-genes_per_cell <- FetchData(seurat, c("nFeature_RNA", "perturbation")) %>%
-    ggplot(., aes(x = perturbation, y = nFeature_RNA, color = perturbation)) +
-    geom_violin() +
-    ylab("# genes per cell") +
-    theme_Publication() %+%
-    theme(
-        legend.position = "none",
-        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
-    ) +
-    scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
-    theme(axis.title.x = element_blank()) +
-    ggtitle("Number of detected genes per cell") +
-    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
-
-
-
-reads_per_cell <- FetchData(seurat, c("nCount_RNA", "perturbation")) %>%
-    ggplot(., aes(x = perturbation, y = nCount_RNA, color = perturbation)) +
-    geom_violin() +
-    ylab("# UMIs per cell") +
-    theme_Publication() %+%
-    theme(
-        legend.position = "none",
-        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
-    ) +
-    scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
-    theme(axis.title.x = element_blank()) +
-    ggtitle("Number of UMIs per cell") +
-    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
-
-
-plots <- wrap_plots(genes_per_cell, reads_per_cell, ncol = 2)
-
-ggsave(
-    filename = here("plots", "sup", "Fig1_number_UMIs_genes.pdf"),
-    plot = plots,
-    width = 9,
-    height = 4
-)
-```
-
-
 ### Cell number
-
 ```{r}
 our_data <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
 
@@ -270,7 +222,7 @@ p <- ggplot(df, aes(dataset, cells, fill = dataset)) +
 
 ggsave(
     plot = p,
-    filename = here("plots", "sup", "Fig1_cell_number.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig1D_cellnumbers.pdf"),
     width = 7, height = 5.02, units = "in"
 )
 ```

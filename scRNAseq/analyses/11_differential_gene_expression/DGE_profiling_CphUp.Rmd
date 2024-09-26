@@ -1,0 +1,224 @@
+---
+title: "Differential gene expression analysis for CphUp vs Ctrl"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+Run differential gene expression analysis for all subtypes using `muscat`.
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(here)
+library(muscat)
+library(SingleCellExperiment)
+library(scater)
+library(ggVennDiagram)
+library(DGEvistools)
+library(patchwork)
+library(clusterProfiler)
+library(PCAtools)
+library(DESeq2)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+We include the 3 primes because why not, just increases runtime. And we cant use the globally adjusted p values than, but we take local ones anyway. 
+Upon reflection, we will remove them. We are not really interested in differences there, and 
+information across samples is used during differential gene expression and also during clustering.
+
+```{r}
+seurat <- readRDS(here("output", "RNAi_experiments_integrated.rds"))
+
+seurat <- seurat[, seurat$perturbation %in% c("ctrl", "CphUp")]
+
+
+# we want comparision for ISC and EEs and ISC+EEPs (will be essentially the same as ISC because almost no EEPs in ctrl)
+seurat <- seurat[, !seurat$celltype_manual %in% c("unk", "unk2", "MT", "dEC", "daEC", "EB")]
+seurat <- seurat[, !seurat$high_res_annotation == "EEP"]
+
+seurat@meta.data$tmp_celltype <- case_when(
+    seurat$celltype_manual %in% c("mEC", "aEC", "pEC", "LFC", "Copper") ~ "EC",
+    T ~ seurat$celltype_manual
+)
+
+sce <- as.SingleCellExperiment(seurat)
+
+# muscat expects certain columns:
+sce$sample_id <- factor(sce$orig.ident.unique, levels = sce$orig.ident.unique %>% unique())
+sce$cluster_id <- sce$tmp_celltype
+sce$group_id <- factor(sce$perturbation, levels = sce$perturbation %>% unique())
+table(sce$sample_id, sce$cluster_id)
+
+# prepare the sce object
+sce <- prepSCE(sce, drop = T)
+```
+
+
+## PCA based QC
+```{r, eval=F}
+###########################
+# PCA USING ALL CELLTYPES #
+###########################
+# this combines all celltypes in one assay. Better if we want to visulaize stuff.
+whole_pseudobulk <- glmGamPoi::pseudobulk(sce,
+    group_by = vars(sample_id, cluster_id, group_id)
+)
+
+# plot a PCA
+vst_data <- DESeq2::vst(counts(whole_pseudobulk))
+
+
+vst_corrected <- limma::removeBatchEffect(vst_data,
+    batch = substr(colnames(vst_data), 1, 4)
+)
+
+
+pattern <- "([^.]+)\\.([^.]+)\\.([^.]*)"
+sample_mdata <- data.frame(do.call(rbind, lapply(str_match_all(colnames(vst_corrected), pattern), function(x) x[, 2:4])))
+colnames(sample_mdata) <- c("sample_id", "celltype", "perturbation")
+rownames(sample_mdata) <- colnames(vst_corrected)
+sample_mdata$batch <- str_extract(sample_mdata$sample_id, "TX\\d+")
+
+stopifnot(all(rownames(sample_mdata) == colnames(vst_corrected)))
+
+# run PCA using 60% must variable genes
+pca_data <- pca(vst_corrected,
+    metadata = sample_mdata,
+    removeVar = 0.4
+)
+
+# extract top 6 PCS
+pca_plot_df <- pca_data$rotated[, c("PC1", "PC2", "PC3")] %>%
+    rownames_to_column("sample_id") %>%
+    left_join(., sample_mdata %>% rownames_to_column("tmp"), by = c("sample_id" = "tmp"))
+
+
+# looks really nice actually
+p <- ggplot(pca_plot_df, aes(PC1, PC2, color = perturbation, shape = batch, size = celltype)) +
+    geom_point() +
+    xlab(paste0("PC1: ", round(pca_data$variance[1], 2), "% variance")) +
+    ylab(paste0("PC2: ", round(pca_data$variance[2], 2), "% variance")) +
+    theme_Publication() +
+    scale_size_manual(values = c(2, 5, 10)) +
+    chameleon::scale_color_chameleon()
+
+
+
+celltype_pca <- lapply(c("EE", "EC", "ISC"), function(x) {
+    mask <- grepl(x, colnames(counts(whole_pseudobulk)))
+    vst_data <- DESeq2::vst(counts(whole_pseudobulk)[, mask])
+    vst_corrected <- limma::removeBatchEffect(vst_data,
+        batch = substr(colnames(vst_data), 1, 4)
+    )
+
+    pattern <- "([^.]+)\\.([^.]+)\\.([^.]*)"
+
+    sample_mdata <- data.frame(do.call(rbind, lapply(str_match_all(colnames(vst_corrected), pattern), function(x) x[, 2:4])))
+    colnames(sample_mdata) <- c("sample_id", "celltype", "perturbation")
+    rownames(sample_mdata) <- colnames(vst_corrected)
+    sample_mdata$batch <- str_extract(sample_mdata$sample_id, "TX\\d+")
+
+    stopifnot(all(rownames(sample_mdata) == colnames(vst_corrected)))
+
+    # run PCA using 60% must variable genes
+    pca_data <- pca(vst_corrected,
+        metadata = sample_mdata,
+        removeVar = 0.4
+    )
+
+    # extract top 6 PCS
+    pca_plot_df <- pca_data$rotated[, c("PC1", "PC2", "PC3")] %>%
+        rownames_to_column("sample_id") %>%
+        left_join(., sample_mdata %>% rownames_to_column("tmp"), by = c("sample_id" = "tmp"))
+
+    ggplot(pca_plot_df, aes(PC1, PC2, color = perturbation, shape = batch)) +
+        geom_point(size = 4) +
+        xlab(paste0("PC1: ", round(pca_data$variance[1], 2), "% variance")) +
+        ylab(paste0("PC2: ", round(pca_data$variance[2], 2), "% variance")) +
+        theme_Publication() +
+        chameleon::scale_color_chameleon() +
+        ggtitle(x) +
+        guides(color = guide_legend(nrow = 2, byrow = TRUE), shape = guide_legend(nrow = 2, byrow = TRUE))
+})
+
+p <- wrap_plots(celltype_pca, nrow = 1)
+p
+```
+
+
+
+
+
+### Run differential expression 
+```{r}
+###############################
+# RUN DIFFERENTIAL EXPRESSION #
+###############################
+colData(sce)$sample_id <- sce$sample_id %>% droplevels()
+colData(sce)$group_id <- sce$group_id %>% droplevels()
+colData(sce)$cluster_id <- sce$cluster_id %>% droplevels()
+table(sce$sample_id, sce$cluster_id)
+
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id")
+)
+
+# one sheet per subpopulation
+assayNames(pb)
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info 
+
+ei$batch <- substr(ei$sample_id, 1, 4)
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("Ctrl", "TX49", "CphUp"))
+
+# this corresponds to the difference of CphUp vs ctrl is our baseline
+# also explained here: https://support.bioconductor.org/p/110759/
+contr <- limma::makeContrasts("CphUp", levels = mm) # compare notch VS ctrl
+
+res <- pbDS(pb,
+    design = mm,
+    method = "edgeR",
+    contrast = contr,
+    min_cells = 0,
+    filter="genes"
+)
+
+```
+
+# save edgeR results
+```{r}
+for (celltype in names(res$table$CphUp)) {
+    dir.create(here("output", "differential_expression", "pseudobulk_CphUp", celltype), showWarnings = F, recursive = T)
+    res$table$CphUp[[celltype]] %>%
+        dplyr::select(gene, logCPM, logFC, p=p_val, p_adj = p_adj.loc, celltype = cluster_id) %>%
+        arrange(p_adj) %>%
+        data.table::fwrite(.,
+            file = here("output", "differential_expression", "pseudobulk_CphUp", celltype, "edgeR_diff_expr.tsv"), sep = "\t",
+            row.names = F
+        )
+}
+```
+
+```{r}
+sessionInfo()
+```
+

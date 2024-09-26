@@ -1,0 +1,75 @@
+---
+title: "GSEA CphUp"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+```{r}
+library(tidyverse)
+library(SingleCellExperiment)
+library(here)
+library(clusterProfiler)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+```{r}
+differentially_expressed_genes <- data.table::fread(here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"), data.table = F)
+
+gene_sets <- readRDS(here::here("output", "gene_sets.rds"))
+
+ranked_degs <- differentially_expressed_genes %>%
+    select(gene, logFC, p) %>%
+    mutate(stat = sign(logFC) * -log10(p)) %>%
+    arrange(-stat) %>% 
+    select(gene, stat) %>%
+    deframe() 
+    
+
+gsea_result <- GSEA(ranked_degs, TERM2GENE = gene_sets$enrichR_GO_Biological_Process_2018) # pvalueCutoff = 0.1
+
+gene_sets_of_interest <- c("enrichR_GO_Biological_Process_2018_positive regulation of programmed cell death (GO:0043068)")
+
+index = which(gsea_result@result$ID == gene_sets_of_interest)
+es.score <- gsea_result[index, "enrichmentScore"]
+gsdata <- enrichplot:::gsInfo(gsea_result, index) 
+es.rank <- which.min(abs(gsdata$runningScore - es.score))
+gsdata$es.rank = es.rank
+gsdata$Description <- "Positive regulation of programmed cell death (GO:0043068)"
+
+p <- ggplot(gsdata, aes_(x = ~x)) +
+  geom_vline(mapping=aes(xintercept = es.rank), color="firebrick", linetype="dashed",size=0.5)+
+  geom_linerange(aes_(ymin=~ymin, ymax=~ymax), color="black", size=0.4) +
+  geom_line(aes_(y = ~runningScore), color="black", size=0.35)+
+  geom_hline(yintercept = 0)+
+  facet_wrap(~Description, ncol = 1)+
+  xlab("Position in the Ranked List of Genes")+
+  ylab("Running\nEnrichment Score")+
+  scale_x_continuous(breaks=c(0, 4000, 8000))+
+  theme_Publication() %+%
+  theme(axis.title = element_text(size=11, face="plain"),
+        axis.text = element_text(size=8),
+        strip.text.x = element_text(size = 7, face="bold"))
+
+ggsave(
+    p,
+    filename =  here::here("scRNAseq","plots","main", "Fig7E_GSEA.pdf"),
+    width = 2.8,
+    height = 2,
+    scale=1.5
+)
+```
+
+```{r}
+sessionInfo()
+```
+

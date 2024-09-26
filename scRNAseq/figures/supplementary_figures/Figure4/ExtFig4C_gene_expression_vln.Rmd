@@ -1,0 +1,87 @@
+---
+title: "Supp Figure 4 gene expression violine"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+# load progenitor population with MELD labels
+progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+
+progenitors$VFC_2 <- ifelse(progenitors$VFC_2 == 0, "ctrl_like", "notch_like")
+
+# remove cells that come from pertubrbation but have label ctrl_like
+mask1 <- progenitors$perturbation == "notch" & progenitors$VFC_2 == "ctrl_like"
+
+# remove cells that come from ctrl but have label notch_like
+mask2 <- progenitors$perturbation == "ctrl" & progenitors$VFC_2 == "notch_like"
+
+progenitors <- progenitors[, !(mask1 | mask2)]
+```
+
+
+```{r}
+genes <- c("sc", "phyl", "ase", "Cdk1", "CycA", "CycB")
+
+p <- FetchData(progenitors, c(genes, "perturbation")) %>%
+    rownames_to_column("id") %>%
+    pivot_longer(-c(id, perturbation)) %>%
+    mutate(name = factor(name, levels = genes)) %>%
+    ggplot(., aes(x = perturbation, y = value, color = perturbation, fill = perturbation)) +
+    geom_jitter(size = 0.25, stroke = 0.2, width = 0.2, shape = 21) +
+    geom_violin(
+        mapping = aes(x = perturbation, y = value), color = "black",
+        adjust = 1, trim = TRUE, scale = "width", inherit.aes = F, fill = NA, width = 0.4 # adjust width so the violine does not stick out too much
+    ) +
+    theme_Publication() +
+    theme(
+        legend.position = "none",
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        axis.title.x = element_blank()
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    stat_summary(
+        fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
+        aes(group = perturbation), position = position_dodge(width = 0.9)
+    ) +
+    ylab("Expression (logcounts)") +
+    scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
+    scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4]), 0.3)) +
+    facet_wrap(~name, ncol = 2, scales = "free_y")
+# p
+
+ggsave(
+    plot = p,
+    filename = here("scRNAseq","plots", "sup", "ExtFig4C_gene_expression.pdf"),
+    width = 2.7,
+    height = 3,
+    scale = 2
+)
+```
+
+
+
+
+```{r}
+sessionInfo()
+```

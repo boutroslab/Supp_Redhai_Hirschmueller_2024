@@ -1,0 +1,243 @@
+---
+title: "Supp Figure 4 Venn Diagramms MELD"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+
+
+```{r load libraries}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(RColorBrewer)
+library(ComplexHeatmap)
+library(circlize)
+library(scater)
+library(muscat)
+library(VennDiagram)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+# Do perturbed notch vs unperturbed ctrls
+```{r}
+progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+progenitors$VFC_2 <- ifelse(progenitors$VFC_2 == 0 , "ctrl_like", "notch_like")
+
+# remove cells that come from pertubrbation but have label ctrl_like
+mask1 <- progenitors$perturbation == "notch" & progenitors$VFC_2 == "ctrl_like"
+
+# remove cells that come from ctrl but have label notch_like
+mask2 <- progenitors$perturbation == "ctrl" & progenitors$VFC_2 == "notch_like"
+
+# this contains no "missclassified" cells.
+sce <- as.SingleCellExperiment(progenitors[, !(mask1 | mask2)])
+
+# muscat expects certain columns:
+sce$cluster_id <- "Progenitor"
+sce$group_id <- factor(sce$perturbation, levels = c("ctrl", "notch"))
+sce$sample_id <- factor(sce$orig.ident, levels = c("TX22", "TX23", "TX22_N", "TX23_N"))
+
+# prepare the sce object
+sce <- prepSCE(sce, drop=T)
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id"))
+
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info
+ei$batch <- c("TX22", "TX23", "TX22", "TX23")
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("ctrl", "TX23", "notch"))
+contr <- limma::makeContrasts("notch", levels = mm) #compare notch VS ctrl
+
+res_edgeR <- pbDS(pb, design = mm, method = "edgeR", contrast = contr, min_cells = 5) 
+
+result_true_comparison <- res_edgeR$table$notch$Progenitor %>% 
+    select(gene, logCPM, logFC, F_statistic=`F`, p_adj = p_adj.loc) %>% 
+    arrange(p_adj)
+
+up_reg_true_comparison <- result_true_comparison %>% filter(p_adj < 0.05) %>% filter(logFC > 0) %>% pull(gene)
+down_reg_true_comparison <- result_true_comparison %>% filter(p_adj < 0.05) %>% filter(logFC < 0) %>% pull(gene)
+```
+
+
+# No compare unperturbed notch vs unperturbed ctrls
+```{r}
+progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+progenitors$VFC_2 <- ifelse(progenitors$VFC_2 == 0 , "ctrl_like", "notch_like")
+
+# these are notch cells that behave like ctrls
+mask1_keep <- progenitors$perturbation == "notch" & progenitors$VFC_2 == "ctrl_like"
+
+# these are ctrl cells that really behave like ctrls
+mask2_keep <- progenitors$perturbation == "ctrl" & progenitors$VFC_2 == "ctrl_like"
+
+sce <- as.SingleCellExperiment(progenitors[, (mask1_keep | mask2_keep)])
+
+# muscat expects certain columns:
+sce$cluster_id <- "Progenitor"
+sce$group_id <- factor(sce$perturbation, levels = c("ctrl", "notch"))
+sce$sample_id <- factor(sce$orig.ident, levels = c("TX22", "TX23", "TX22_N", "TX23_N"))
+
+# prepare the sce object
+sce <- prepSCE(sce, drop=T)
+
+# this does a different assay for each celltype
+pb <- aggregateData(sce,
+    assay = "counts", fun = "sum",
+    by = c("cluster_id", "sample_id"))
+
+
+# construct design & contrast matrix
+ei <- metadata(sce)$experiment_info
+ei$batch <- c("TX22", "TX23", "TX22", "TX23")
+mm <- model.matrix(~ batch + group_id, data = ei)
+dimnames(mm) <- list(ei$sample_id, c("ctrl", "TX23", "notch"))
+contr <- limma::makeContrasts("notch", levels = mm) #compare notch unpertrubed VS ctrl unperturbed
+
+res_edgeR <- pbDS(pb, design = mm, method = "edgeR", contrast = contr, min_cells = 5) 
+
+result_other_comparison <- res_edgeR$table$notch$Progenitor %>% 
+    select(gene, logCPM, logFC, F_statistic=`F`, p_adj = p_adj.loc) %>% 
+    arrange(p_adj)
+
+up_reg_other_comparison <- result_other_comparison %>% filter(p_adj < 0.05) %>% filter(logFC > 0) %>% pull(gene)
+down_reg_other_comparison <- result_other_comparison %>% filter(p_adj < 0.05) %>% filter(logFC < 0) %>% pull(gene)
+```
+
+
+### Compare the results
+
+```{r}
+upregulated <- list(
+    "Perturbed Notch vs Control" = up_reg_true_comparison,
+    "Unperturbed Notch vs Control" = up_reg_other_comparison
+)
+
+# Prepare a palette of 2 colors with R colorbrewer:
+library(RColorBrewer)
+myCol <- brewer.pal(2, "Pastel1")
+
+# Chart
+tmp <- venn.diagram(
+        x = upregulated,
+        scaled=F,
+        scale=0.3,
+        euler.d = FALSE,
+        disable.logging = T,
+        filename = NULL,
+        
+        # Circles
+        lwd = 2,
+        lty = 'blank',
+        fill = myCol[1:2],
+        
+        # Numbers
+        cex = 1.4,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 1,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        cat.pos = c(-20, 20),
+        cat.dist = c(0.055, 0.055),
+        cat.fontfamily = "sans"
+)
+
+pdf(file = here("scRNAseq","plots", "sup", "ExtFig4B_VennDiagram_sig_up.pdf"))
+grid.draw(tmp)
+grid.text("Sig. upregulated genes", x = 0.5, y = 0.95, gp = gpar(fontsize = 14, fontface = "bold"))
+dev.off()
+
+
+########################################
+# now the same for downregulated genes #
+########################################
+
+downregulated <- list(
+    "Perturbed Notch vs Control" = down_reg_true_comparison,
+    "Unperturbed Notch vs Control" = down_reg_other_comparison
+)
+
+# Prepare a palette of 2 colors with R colorbrewer:
+myCol <- brewer.pal(2, "Pastel1")
+
+# Chart
+tmp <- venn.diagram(
+        x = downregulated,
+        scaled=F,
+        scale=0.3,
+        euler.d = FALSE,
+        disable.logging = T,
+        filename = NULL,
+        
+        # Circles
+        lwd = 2,
+        lty = 'blank',
+        fill = myCol[1:2],
+        
+        # Numbers
+        cex = 1.4,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 1,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        cat.pos = c(-20, 20),
+        cat.dist = c(0.055, 0.055),
+        cat.fontfamily = "sans"
+)
+
+pdf(file = here("scRNAseq","plots", "sup", "ExtFig4B_VennDiagram_sig_down.pdf"))
+grid.draw(tmp)
+grid.text("Sig. downregulated genes", x = 0.5, y = 0.95, gp = gpar(fontsize = 14, fontface = "bold"))
+dev.off()
+
+
+```
+
+
+
+
+
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,121 @@
+---
+title: "Supp Fig 9 scatter plot"
+author: "Nick Hirschmüller"
+date: "2024-09-05"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = FALSE)
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(cowplot)
+library(Seurat)
+library(ggpubr)
+
+source("plot_theme.R")
+```
+
+
+### Load Data
+```{r}
+integrated <- readRDS(here::here("output", "RNAi_experiments_integrated.rds"))
+MAST_diff_expr_NotchRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchRNAi")
+
+MAST_diff_expr_NotchCphRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchCphRNAi")
+
+differentially_expressed_genes_isc <- bind_rows(
+    MAST_diff_expr_NotchRNAi_ISC_EEP, MAST_diff_expr_NotchCphRNAi_ISC_EEP
+    )
+```
+
+
+
+
+```{r}
+genes_to_plot_violin <- c("N", "CG9650")
+filter(differentially_expressed_genes_isc, gene %in% genes_to_plot_violin)
+
+ISC_EEP <- integrated[, integrated$high_res_annotation %in% c("EEP","ISC")]
+ISC_EEP$tmp_celltype = "ISC_EEP"
+violin_plot_input <- FetchData(ISC_EEP, c(genes_to_plot_violin, "tmp_celltype", "perturbation"))
+
+violin_plot_input <- violin_plot_input %>%
+    filter(perturbation %in% c("ctrl", "NotchRNAi", "NotchCphRNAi")) %>%
+    dplyr::rename("Cph" = "CG9650") %>%
+    dplyr::rename("Notch" = "N") %>%
+    mutate(perturbation = factor(perturbation, levels = c("ctrl", "NotchRNAi", "NotchCphRNAi")))
+
+my_comparisons <- list(c("ctrl", "NotchRNAi"), c("ctrl", "NotchCphRNAi"))
+
+
+vln_plot <- function(gene, celltype_title, adjust_ = 1) {
+    violin_plot_input %>%
+        select(gene, perturbation) %>%
+        dplyr::rename(value = gene) %>%
+        ggplot(aes(x = perturbation, y = value, color = perturbation, fill = perturbation)) +
+        geom_jitter(size = 0.65, stroke = 0.4, width = 0.2, shape = 21) +
+        geom_violin(
+            adjust = adjust_, trim = TRUE, scale = "width", fill = "#00000000", color = "black", width = 0.6
+        ) +
+        theme_Publication() +
+        theme(legend.position = "none") +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+        stat_summary(
+            fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
+            aes(group = perturbation), position = position_dodge(width = 0.9)
+        ) +
+        stat_compare_means(comparisons = my_comparisons, method = "t.test", label = "p.signif",
+                           symnum.args =list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), 
+                                             symbols = c("***", "***", "**", "*", "ns"))) +
+        ylab("Expression\n(logcounts)") +
+        xlab("Condition") +
+        ggtitle(paste0(gene, " expression in: ", celltype_title))+
+        scale_color_manual(values=c(color_mapping[1], color_mapping[4], "#37bc45"))+
+        scale_fill_manual(values=alpha(c(color_mapping[1], color_mapping[4], "#37bc45"),0.6))
+}
+
+
+
+ggsave(
+    plot = vln_plot(gene = "Notch", celltype_title = "ISC+EEP"),
+    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9A_Notch_expression.pdf"),
+    width = 4.5,
+    height = 3.1,
+    scale=1.5
+)
+
+ggsave(
+    plot = vln_plot(gene = "Cph", celltype_title = "ISC+EEP"),
+    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9B_Cph_expression.pdf"),
+    width = 4.5,
+    height = 3.1,
+    scale=1.5
+)
+```
+
+```{r}
+sessionInfo()
+```
+

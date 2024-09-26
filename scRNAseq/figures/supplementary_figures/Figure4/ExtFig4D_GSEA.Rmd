@@ -1,0 +1,87 @@
+---
+title: "Check expression for certain genes"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+## Introduction
+This script is to check the expression of certain genes of interest.
+
+```{r load libraries}
+library(tidyverse)
+library(clusterProfiler)
+library(viridis)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+## GSEA of MELD Notch vs control in progenitors
+```{r}
+meld_Progenitor <- data.table::fread(here("output", "differential_expression","pseudobulk_coarse_meld","Progenitor","edgeR_diff_expr.tsv"), data.table = F)%>% 
+    mutate(approach = "meld")
+
+
+
+gene_sets <- readRDS(here::here("output","gene_sets.rds"))
+hallmark <- gene_sets$hallmark %>% dplyr::select(term=pathway_name, genes = symbol)
+go_bp <- gene_sets$enrichR_GO_Biological_Process_2018
+
+ranked <- meld_Progenitor %>% 
+    select(gene, logFC) %>% 
+    mutate(stat = logFC) %>% 
+    select(gene, stat) %>% 
+    deframe() %>% 
+    sort(decreasing = T)
+
+
+gsea_res <- GSEA(ranked, TERM2GENE = rbind(hallmark, go_bp),
+                 pvalueCutoff = 0.05)
+
+gsea_plot <- gsea_res@result %>% 
+    filter(p.adjust<0.05) %>% 
+    mutate(pathway = str_remove_all(ID, "HALLMARK_")) %>% 
+    mutate(pathway = str_remove_all(pathway, "\\(GO:\\d+\\)")) %>% 
+    mutate(pathway = str_remove_all(pathway, "enrichR_GO_Biological_Process_2018_")) %>% 
+    filter(grepl("HALLMARK", ID) | grepl("GO:0006412", ID) | 
+               grepl("GO:0045787" , ID) | grepl("GO:0000724", ID) |
+           grepl("GO:0006260", ID)) %>% 
+    mutate(condition = "NotchKO") %>% 
+    arrange(NES) %>% 
+    mutate(pathway = fct_reorder(pathway, -NES)) %>% 
+    ggplot(., aes(x=NES, y=pathway,color=p.adjust, size=setSize)) + 
+    geom_point() + 
+    ylab("Gene sets") + 
+    scale_color_viridis() +
+    scale_size(range = c(4, 8)) + # Adjust the size range here
+    geom_vline(xintercept = 0, linetype="dashed") +
+    coord_cartesian(clip = "off") +
+    cowplot::theme_cowplot()+
+    facet_wrap(~condition)
+
+ggsave(plot = gsea_plot,
+       filename = here("scRNAseq", "plots", "sup", "Fig4d_GSEA.pdf"),
+       width = 9,
+       height=5.5)
+
+
+```
+
+
+
+```{r}
+sessionInfo()
+```
+
+

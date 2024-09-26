@@ -1,0 +1,94 @@
+---
+title: "Figure 6 sff expression"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(ggsignif)
+
+# source plotting theme
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
+
+progenitors <- progenitors[, progenitors$high_res_annotation %in% c("ISC", "EEP")]
+
+progenitors$high_res_annotation <- factor(progenitors$high_res_annotation,
+    levels =
+        c("ISC", "EEP"),
+)
+
+# Create an annotation dataframe
+annotation_df <- data.frame(
+    perturbation = c("a", "b"),
+    y_position_ = c(3.2, 3.2), # Adjust as needed
+    xmin_ = c(0.78, 1.78),
+    xmax_ = c(1.225, 2.225),
+    label = "***"
+)
+
+p <- FetchData(progenitors, c("sff", "high_res_annotation", "perturbation")) %>%
+    rownames_to_column("id") %>%
+    pivot_longer(-c(id, high_res_annotation, perturbation)) %>%
+    mutate(dummy = ifelse(perturbation == "perturbed Notch KO", "Z", "X")) %>%
+    ggplot(., aes(x = high_res_annotation, y = value)) +
+    geom_point(
+        size = 0.65, stroke = 0.4, shape = 21, mapping = aes(color = perturbation, fill = perturbation),
+        position = position_jitterdodge(jitter.width = 0.3, dodge.width = 0.87)
+    ) +
+    geom_violin(
+        mapping = aes(color = perturbation, fill = perturbation),
+        adjust = 1, trim = TRUE, scale = "width", show.legend = F, fill = NA,
+    ) +
+    theme_Publication() +
+    theme(legend.title = element_text(size = 12)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+    stat_summary(
+        fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
+        aes(group = perturbation), position = position_dodge(width = 0.9)
+    ) +
+    ylab("Expression\n(logcounts)") +
+    xlab("Celltype") +
+    scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
+    scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4]), 0.3)) +
+    ggtitle("sff") +
+    guides(color = guide_legend(override.aes = list(size = 2, stroke = 0, shape = 16))) + # Custom legend
+    geom_signif(
+        data = annotation_df,
+        aes(xmin = xmin_, xmax = xmax_, annotations = label, y_position = y_position_, group = perturbation),
+        textsize = 6.5, manual = TRUE, vjust = -0.2,
+        inherit.aes = F
+    )
+p
+ggsave(
+    plot = p,
+    file = here("scRNAseq","plots", "main", "Fig6D_sff_expression_isc_eep.pdf"),
+    width = 3.5,
+    height = 3,
+    units = "in",
+    scale = 1.4
+)
+```
+
+```{r}
+sessionInfo()
+```
+

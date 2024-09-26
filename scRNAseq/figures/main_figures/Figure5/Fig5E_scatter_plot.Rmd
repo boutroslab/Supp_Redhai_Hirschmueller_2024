@@ -1,0 +1,94 @@
+---
+title: "Figure 5 scatter plot"
+author: "Erica Valentini, modified by Nick Hirschmüller"
+date: "2024-09-05"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    smooth_scroll: yes
+  pdf_document: default
+  number_sections: no
+  highlight: tango
+  theme: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE, cache = FALSE)
+```
+
+# Load packages and data
+
+```{r load}
+library(tidyverse)
+library(UpSetR)
+library(ggpubr)
+library(cowplot)
+library(ggrepel)
+```
+
+
+```{r}
+MAST_diff_expr_NotchRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchRNAi")
+
+MAST_diff_expr_NotchCphRNAi_ISC_EEP <- data.table::fread(
+    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F) %>% 
+    mutate(condition = "NotchCphRNAi")
+
+differentially_expressed_genes <- bind_rows(MAST_diff_expr_NotchCphRNAi_ISC_EEP, MAST_diff_expr_NotchRNAi_ISC_EEP)
+
+interesting_genes <- c("E(spl)malpha-BFM", "klu", "Dl", "Swim", "E(spl)mbeta-HLH", "Myc", "spdo", "sli", "crol", "endos", "arm", "msi", "Non1", "mnb", "sima", "Mad", "path", "Egfr", "mira", "EcR", "N", "mip40", "CycA", "InR", "Dp", "esg", "kuz", "kibra", "Cdc7", "grp", "Pdi", "Cph", "sc")
+```
+
+
+```{r}
+pvalue_threshold = 1
+p <- differentially_expressed_genes %>% 
+  filter(condition == "NotchCphRNAi", p_val_adj < pvalue_threshold) %>%
+  inner_join(differentially_expressed_genes %>% filter(condition == "NotchRNAi", p_val_adj < pvalue_threshold), by = "gene", suffix = c(".notch.cph", ".notch")) %>% 
+  mutate(is_interesting = ifelse(gene %in% interesting_genes, "interesting", "not interesting")) %>% 
+  arrange(desc(is_interesting)) %>% 
+  ggscatter(x="avg_log2FC.notch", 
+            y = "avg_log2FC.notch.cph", 
+            color = "is_interesting",
+            legend = "none",
+            add = "reg.line", 
+            conf.int = TRUE, 
+            palette = c("red", "gray10"), 
+            add.params = list(color = "blue", fill="lightgray"), 
+            alpha = 0.7) +
+    geom_rug(side = "bi", aes(color = is_interesting), palette = c("red", "gray10")) +
+    stat_cor(method = "pearson", label.y.npc = "top") +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_text_repel(aes(label = if_else(gene %in% interesting_genes, gene, "")), 
+                    max.overlaps = Inf, size=5, box.padding = 0.5)
+
+p
+
+ggsave(
+    plot = p,
+    filename = here::here("scRNAseq", "plots", "main", "Fig5E_correlation_plot.pdf"),
+    width = 3.9,
+    height = 3,
+    scale=2.5
+)
+```
+
+
+
+
+```{r}
+sessionInfo()
+```
+
+
+
+
