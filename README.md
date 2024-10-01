@@ -31,6 +31,12 @@ The code to reproduce all analyses is located in the `NanoDam_DamID_CHIPseq_RNAs
 
 
 
+<ins>**Data explorer (ShinyApp)**</ins> 
+
+Created by Nick Hirschmüller.
+
+The code to recreate the app is located in the `ShinyApp` folder. 
+
 
 
 
