@@ -96,7 +96,7 @@ p <- FetchData(seurat_isc, c("CG9650", "perturbation", "Delta_status")) %>%
 
 p
 ggsave(
-    filename = here("scRNAseq", "plots", "main", "EV4E_Delta_gating_ISC_Cph_expr.pdf"),
+    filename = here("scRNAseq", "plots", "sup", "EV4E_Delta_gating_ISC_Cph_expr.pdf"),
     plot = p,
     height = 3, width = 4.5, scale = 1.3
 )
