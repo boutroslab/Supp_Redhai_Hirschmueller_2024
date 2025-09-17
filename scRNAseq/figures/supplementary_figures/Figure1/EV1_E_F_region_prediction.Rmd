@@ -69,7 +69,7 @@ combined_plots <- wrap_plots(ctrl_plot + NoLegend(),
 combined_plots %>%
     ggsave(
         plot = .,
-        file = here("scRNAseq","plots", "sup", "ExtFig2D_region_prediction.pdf"),
+        file = here("scRNAseq","plots", "sup", "ExtFig2E_region_prediction.pdf"),
         width = 6.2,
         height = 3.3,
         units = "in",
@@ -80,7 +80,6 @@ combined_plots %>%
 ## Focus on EEs
 ```{r}
 ee <- seurat[, seurat$celltype_manual == "EE"]
-
 
 # this is fraction of TOTAL EEs
 p_total <- ee@meta.data %>%
@@ -106,15 +105,14 @@ p_total <- ee@meta.data %>%
     facet_wrap(~high_res_annotation) +
     scale_fill_manual(values = c(color_mapping[1], color_mapping[4]), breaks = c("ctrl","notch"))
 
-ggsave(plot=p_total,
-       filename =here("scRNAseq","plots", "sup", "ExtFig2E_region_prediction_EEs.pdf"),
-       width = 4, height = 3,scale=2)
-
-
+ggsave(
+    plot = p_total,
+    filename = here("scRNAseq", "plots", "sup", "ExtFig2F_region_prediction_EEs.pdf"),
+    width = 4, height = 3, scale = 2
+)
 ```
 
 
-
 ```{r}
-
+sessionInfo()
 ```

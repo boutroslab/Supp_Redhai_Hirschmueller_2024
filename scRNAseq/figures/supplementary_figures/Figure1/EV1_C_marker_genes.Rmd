@@ -12,9 +12,6 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F)
 set.seed(123)
 ```
 
-
-
-
 ```{r}
 library(Seurat)
 library(tidyverse)
@@ -24,8 +21,6 @@ library(here)
 source(here("plot_theme.R"))
 source(here("helper_functions.R"))
 ```
-
-
 
 ```{r}
 # load the integrated dataset
@@ -72,7 +67,7 @@ p <- FetchData(ctrl, c(genes, "celltype_manual")) %>%
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig2B_marker_gene_expression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig2C_marker_gene_expression.pdf"),
     width = 4.8,
     height = 4,
     scale = 1.5

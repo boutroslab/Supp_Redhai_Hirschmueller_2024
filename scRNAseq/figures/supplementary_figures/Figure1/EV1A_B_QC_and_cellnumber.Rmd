@@ -105,72 +105,13 @@ ggsave(plot,
 ```
 
 
-### number of reads and genes
-
-```{r}
-seurat <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
-
-genes_per_cell <- FetchData(seurat, c("nFeature_RNA", "orig.ident")) %>%
-    mutate(orig.ident = case_when(
-        orig.ident == "TX22" ~ "Control\nReplicate 1",
-        orig.ident == "TX23" ~ "Control\nReplicate 2",
-        orig.ident == "TX22_N" ~ "Notch KO\nReplicate 1",
-        orig.ident == "TX23_N" ~ "Notch KO\nReplicate 2"
-    )) %>%
-    ggplot(., aes(x = orig.ident, y = nFeature_RNA, color = orig.ident)) +
-    geom_violin() +
-    ylab("# genes per cell") +
-    theme_Publication() %+%
-    theme(
-        legend.position = "none",
-        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
-    ) +
-    scale_color_manual(values = color_mapping) +
-    theme(axis.title.x = element_blank()) +
-    ggtitle("Number of detected genes per cell") +
-    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
-
-
-
-reads_per_cell <- FetchData(seurat, c("nCount_RNA", "orig.ident")) %>%
-    mutate(orig.ident = case_when(
-        orig.ident == "TX22" ~ "Control\nReplicate 1",
-        orig.ident == "TX23" ~ "Control\nReplicate 2",
-        orig.ident == "TX22_N" ~ "Notch KO\nReplicate 1",
-        orig.ident == "TX23_N" ~ "Notch KO\nReplicate 2"
-    )) %>%
-    ggplot(., aes(x = orig.ident, y = nCount_RNA, color = orig.ident)) +
-    geom_violin() +
-    ylab("# UMIs per cell") +
-    theme_Publication() %+%
-    theme(
-        legend.position = "none",
-        plot.title = element_text(size = 14.5, face = "bold", hjust = 0.5)
-    ) +
-    scale_color_manual(values = color_mapping) +
-    theme(axis.title.x = element_blank()) +
-    ggtitle("Number of UMIs per cell") +
-    stat_summary(geom = "point", fun = "mean", shape = 8, color = "black", size = 3, stroke = 0.65)
-
-
-plots <- wrap_plots(genes_per_cell, reads_per_cell, ncol = 2)
-
-ggsave(
-    filename = here("scRNAseq","plots", "sup", "ExtFig1BC_QC_metrics.pdf"),
-    plot = plots,
-    width = 10,
-    height = 4
-)
-```
-
-
 ### Cell number
 ```{r}
 our_data <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
 
 # load data from the hung et al midgut atlas
 # wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE120nnn/GSE120537/suppl/GSE120537%5Fmetadata.csv.gz
-midgut_atlas <- fread(here("raw_data", "GSE120537_metadata.csv.gz")) %>% tibble()
+midgut_atlas <- data.table::fread(here("raw_data", "GSE120537_metadata.csv.gz")) %>% tibble()
 
 #######################
 # Fly cell atlas data #
