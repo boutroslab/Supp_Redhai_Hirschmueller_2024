@@ -18,10 +18,9 @@ library(Seurat)
 library(tidyverse)
 library(patchwork)
 library(here)
-library(ComplexHeatmap)
-library(circlize)
 library(tradeSeq)
 library(SingleCellExperiment)
+library(slingshot)
 
 source(here("plot_theme.R"))
 source(here("helper_functions.R"))
@@ -36,21 +35,6 @@ set.seed(123)
 
 ## Introduction
 This script is to check the expression of certain genes of interest.
-
-```{r load libraries}
-library(Seurat)
-library(tidyverse)
-library(patchwork)
-library(here)
-library(condiments)
-library(slingshot)
-
-# source plotting theme
-source(here("plot_theme.R"))
-source(here("helper_functions.R"))
-```
-
-
 
 ```{r}
 seurat <- readRDS(here("output", "seuratKO_slingshot_object_integrated.rds"))
@@ -103,7 +87,7 @@ ggsave(
     plot = p,
     width = 2.5,
     height = 3,
-    filename = here("scRNAseq", "plots", "main", "Fig2B_Cph_PCA_lineage_expr.pdf"),
+    filename = here("scRNAseq", "plots", "main", "Fig2A_Cph_PCA_lineage_expr.pdf"),
     scale = 1.5
 )
 ```

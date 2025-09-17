@@ -24,13 +24,6 @@ source(here("helper_functions.R"))
 ```
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, warning = F, message = F)
-set.seed(123)
-```
-
-
-
 ```{r}
 # load progenitor population with MELD labels
 progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
@@ -49,13 +42,6 @@ eeps <- progenitors[rowSums(progenitors@assays$RNA@counts) != 0, progenitors$hig
 gene <- "CG9650"
 Idents(eeps) <- eeps$perturbation
 
-differentially_expressed_genes <- FindMarkers(
-    eeps,
-    ident.1 = "perturbed Notch KO",
-    ident.2 = "Control",
-    test.use = "MAST",
-    logfc.threshold = 0.2
-) %>% rownames_to_column("gene")
 
 
 p <- FetchData(eeps, c(gene, "perturbation")) %>%
@@ -82,7 +68,7 @@ p <- FetchData(eeps, c(gene, "perturbation")) %>%
 
 
 ggsave(
-    filename = here("scRNAseq","plots", "main", "Fig2D_Cph_EEP_expression.pdf"),
+    filename = here("scRNAseq","plots", "main", "Fig2F_Cph_EEP_expression.pdf"),
     plot = p,
     height = 4, width = 5, scale = 1.3
 )
