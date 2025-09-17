@@ -1,5 +1,5 @@
 ---
-title: "Supp Figure 3 Notch and notch target gene expression"
+title: "Supp Figure 2 Notch and notch target gene expression"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -71,7 +71,7 @@ p
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig3C_N_expression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig2C_N_expression.pdf"),
     width = 1.75,
     height = 1.3,
     scale = 2
@@ -107,19 +107,15 @@ p <- FetchData(progenitors, c(genes, "perturbation")) %>%
     scale_color_manual(values = c(color_mapping[1], color_mapping[4])) +
     scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4]), 0.3)) +
     facet_wrap(~name, ncol = 4, scales = "free_y")
-p
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig3D_marker_gene_expression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig2C_marker_gene_expression.pdf"),
     width = 5.1,
     height = 2,
     scale = 1.5
 )
-
-
 ```
-
 
 
 ```{r}
