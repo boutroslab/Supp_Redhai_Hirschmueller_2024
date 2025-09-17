@@ -1,5 +1,5 @@
 ---
-title: "Figure 6 Sff and Cph coexpression"
+title: "Figure 5 Highlight coexpression of sc and Cph via density plot"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -13,8 +13,6 @@ set.seed(123)
 ```
 
 
-
-
 ```{r}
 library(Seurat)
 library(tidyverse)
@@ -22,10 +20,10 @@ library(patchwork)
 library(here)
 library(Nebulosa)
 
+# source plotting theme
 source(here("plot_theme.R"))
 source(here("helper_functions.R"))
 ```
-
 
 
 ```{r}
@@ -35,7 +33,7 @@ integrated <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
 
 
 ```{r}
-plots<- plot_density(integrated, c("CG9650","sff"), joint = T, reduction="umap",size=0.01, shape=19, combine = F)
+plots <- plot_density(integrated, c("CG9650", "sc"), joint = T, reduction="umap",size=0.01, shape=19, combine = F)
 
 plot_data <-plots[[3]][["data"]]
 
@@ -47,12 +45,12 @@ p <- ggplot(plot_data, aes(UMAP_1, UMAP_2, color=feature, size=feature))+
     scale_y_reverse()+
     small_axis("UMAP ")+
     labs(color="Joint expression\ndensitiy", size=NA)+
-    ggtitle("Joint Cph and sff expression")
+    ggtitle("Joint Cph and scute expression")
 
 
 
 ggsave(
-    filename = here("scRNAseq","plots", "main", "Fig6B_sff_cph_coexpression_umap_density.pdf"),
+    filename = here("scRNAseq","plots", "main", "Fig5A_sc_cph_expression_density.pdf"),
     width = 4, height = 3.5,
     plot = p,
     scale=1.5
@@ -63,4 +61,3 @@ ggsave(
 ```{r}
 sessionInfo()
 ```
-
