@@ -1,5 +1,5 @@
 ---
-title: "Sup Fig 5 pseudotime expression"
+title: "Sup Fig 4 pseudotime expression"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -31,8 +31,6 @@ We want to plot the expression trajectory for 2 different genes in the same plot
 smoothers_data <- readRDS(here("output", "plotSmoothers_data.rds"))
 ss <- readRDS(here("output", "tradeSeq_fit_condiments_strict.rds"))
 sshot <- slingshot::SlingshotDataSet(ss)
-
-
 
 plot_dual_pseudotime <- function(gene1, gene2, extracted_lineages_object, sshot_dataset, perturbation = "notch", secondary_color ="#4F7AD0") {
     linetypes <- c("solid", "dashed")
@@ -79,37 +77,34 @@ plot_dual_pseudotime <- function(gene1, gene2, extracted_lineages_object, sshot_
     return(p)
 }
 
-
-
 p <- plot_dual_pseudotime(
-    gene1="CG9650", 
-    gene2="pros",
+    gene1 = "CG9650",
+    gene2 = "pros",
     perturbation = "ctrl",
     extracted_lineages_object = smoothers_data,
     sshot_dataset = sshot
-    )
+)
 
 ggsave(
     plot = p,
-    file = here("scRNAseq","plots", "sup", "Fig5B_pseudotime_expression_ctrl.pdf"),
+    file = here("scRNAseq", "plots", "sup", "EV4B_pseudotime_expression_ctrl.pdf"),
     width = 6,
     height = 5,
     units = "in",
     scale = 1.4
 )
 
-
 p <- plot_dual_pseudotime(
-    gene1="CG9650", 
-    gene2="pros",
+    gene1 = "CG9650",
+    gene2 = "pros",
     perturbation = "notch",
     extracted_lineages_object = smoothers_data,
     sshot_dataset = sshot
-    )
+)
 
 ggsave(
     plot = p,
-    file = here("scRNAseq","plots", "sup", "Fig5B_pseudotime_expression_notch.pdf"),
+    file = here("scRNAseq", "plots", "sup", "EV4B_pseudotime_expression_notch.pdf"),
     width = 6,
     height = 5,
     units = "in",
