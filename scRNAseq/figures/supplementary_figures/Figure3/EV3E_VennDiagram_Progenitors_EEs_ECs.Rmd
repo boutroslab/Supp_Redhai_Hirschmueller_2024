@@ -1,5 +1,5 @@
 ---
-title: "Supp Fig 4 Venn diagram to compare differential expression"
+title: "Supp Fig 3 Venn diagram to compare differential expression"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -121,9 +121,7 @@ tmp <- venn.diagram(
     cat.fontfamily = "sans"
 )
 
-
-
-pdf(file = here("scRNAseq","plots", "sup", "ExtFig4E_venn_digaram_downregulated_progenitor_EC_EE_comparision.pdf"))
+pdf(file = here("scRNAseq","plots", "sup", "EV3E_venn_digaram_downregulated_progenitor_EC_EE_comparision.pdf"))
 grid.draw(tmp)
 grid.text("Sig. downregulated genes", x = 0.5, y = 0.992, gp = gpar(fontsize = 10, fontface = "bold"))
 dev.off()

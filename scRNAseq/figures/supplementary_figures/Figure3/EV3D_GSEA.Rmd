@@ -71,7 +71,7 @@ gsea_plot <- gsea_res@result %>%
     facet_wrap(~condition)
 
 ggsave(plot = gsea_plot,
-       filename = here("scRNAseq", "plots", "sup", "Fig4d_GSEA.pdf"),
+       filename = here("scRNAseq", "plots", "sup", "EV3D_GSEA.pdf"),
        width = 9,
        height=5.5)
 

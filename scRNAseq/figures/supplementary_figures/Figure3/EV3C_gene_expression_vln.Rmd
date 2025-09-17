@@ -1,5 +1,5 @@
 ---
-title: "Supp Figure 4 gene expression violine"
+title: "Supp Figure 3 gene expression violine"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -72,14 +72,12 @@ p <- FetchData(progenitors, c(genes, "perturbation")) %>%
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig4C_gene_expression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "ExtFig3C_gene_expression.pdf"),
     width = 2.7,
     height = 3,
     scale = 2
 )
 ```
-
-
 
 
 ```{r}

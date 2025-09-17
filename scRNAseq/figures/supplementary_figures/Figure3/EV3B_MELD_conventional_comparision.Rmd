@@ -1,5 +1,5 @@
 ---
-title: "Supp Figure 4 MELD vs conventional DGE"
+title: "Supp Figure 3 MELD vs conventional DGE"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -79,12 +79,10 @@ lfc_plots <- lapply(celltypes, function(celltype){
         
 })
 
-
 ggsave(
-        filename = here("scRNAseq","plots", "sup", "ExtFig4A_MELD_vs_conventional.pdf"),
-       plot=lfc_plots[[1]], width=4, height=3.5, scale = 1.2)
-
-
+    filename = here("scRNAseq", "plots", "sup", "ExtFig3B_MELD_vs_conventional.pdf"),
+    plot = lfc_plots[[1]], width = 4, height = 3.5, scale = 1.2
+)
 ```
 
 ```{r}
