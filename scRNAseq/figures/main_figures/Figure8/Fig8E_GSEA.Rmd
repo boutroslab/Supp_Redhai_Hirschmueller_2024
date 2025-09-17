@@ -23,7 +23,10 @@ source(here("helper_functions.R"))
 ```
 
 ```{r}
-differentially_expressed_genes <- data.table::fread(here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"), data.table = F)
+differentially_expressed_genes <- data.table::fread(
+    here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"),
+    data.table = F
+)
 
 gene_sets <- readRDS(here::here("output", "gene_sets.rds"))
 
@@ -35,7 +38,9 @@ ranked_degs <- differentially_expressed_genes %>%
     deframe() 
     
 
-gsea_result <- GSEA(ranked_degs, TERM2GENE = gene_sets$enrichR_GO_Biological_Process_2018) # pvalueCutoff = 0.1
+gsea_result <- GSEA(ranked_degs,
+    TERM2GENE = gene_sets$enrichR_GO_Biological_Process_2018
+)
 
 gene_sets_of_interest <- c("enrichR_GO_Biological_Process_2018_positive regulation of programmed cell death (GO:0043068)")
 
@@ -59,13 +64,13 @@ p <- ggplot(gsdata, aes_(x = ~x)) +
   theme(axis.title = element_text(size=11, face="plain"),
         axis.text = element_text(size=8),
         strip.text.x = element_text(size = 7, face="bold"))
-
+                
 ggsave(
     p,
-    filename =  here::here("scRNAseq","plots","main", "Fig7E_GSEA.pdf"),
+    filename = here::here("scRNAseq", "plots", "main", "Fig8E_GSEA.pdf"),
     width = 2.8,
     height = 2,
-    scale=1.5
+    scale = 1.5
 )
 ```
 
