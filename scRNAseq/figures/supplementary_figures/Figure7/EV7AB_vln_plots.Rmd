@@ -36,18 +36,20 @@ source("plot_theme.R")
 ```{r}
 integrated <- readRDS(here::here("output", "RNAi_experiments_integrated.rds"))
 MAST_diff_expr_NotchRNAi_ISC_EEP <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC_EEP", "NotchRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchRNAi")
 
 MAST_diff_expr_NotchCphRNAi_ISC_EEP <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC_EEP", "NotchCphRNAi_vs_ctrl_ISC_EEP_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchCphRNAi")
 
 differentially_expressed_genes_isc <- bind_rows(
     MAST_diff_expr_NotchRNAi_ISC_EEP, MAST_diff_expr_NotchCphRNAi_ISC_EEP
-    )
+)
 ```
 
 
@@ -100,7 +102,7 @@ vln_plot <- function(gene, celltype_title, adjust_ = 1) {
 
 ggsave(
     plot = vln_plot(gene = "Notch", celltype_title = "ISC+EEP"),
-    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9A_Notch_expression.pdf"),
+    filename = here::here("scRNAseq", "plots", "sup", "EV7A_Notch_expression.pdf"),
     width = 4.5,
     height = 3.1,
     scale=1.5
@@ -108,7 +110,7 @@ ggsave(
 
 ggsave(
     plot = vln_plot(gene = "Cph", celltype_title = "ISC+EEP"),
-    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9B_Cph_expression.pdf"),
+    filename = here::here("scRNAseq", "plots", "sup", "EV7B_Cph_expression.pdf"),
     width = 4.5,
     height = 3.1,
     scale=1.5

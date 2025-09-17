@@ -1,5 +1,5 @@
 ---
-title: "Supp Fig 9 scatter plot"
+title: "Supp Fig 7 scatter plot"
 author: "Erica Valentini, modified by Nick Hirschmüller"
 date: "2024-09-05"
 output:
@@ -31,46 +31,54 @@ library(ggrepel)
 
 ```{r}
 MAST_diff_expr_NotchRNAi_ISC <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","ISC", "NotchRNAi_vs_ctrl_ISC_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC", "NotchRNAi_vs_ctrl_ISC_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchRNAi")
 
 MAST_diff_expr_NotchCphRNAi_ISC <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","ISC", "NotchCphRNAi_vs_ctrl_ISC_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC", "NotchCphRNAi_vs_ctrl_ISC_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchCphRNAi")
 
-
 MAST_diff_expr_NotchRNAi_ISC_EB <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","ISC_EB", "NotchRNAi_vs_ctrl_ISC_EB_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC_EB", "NotchRNAi_vs_ctrl_ISC_EB_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchRNAi")
 
 MAST_diff_expr_NotchCphRNAi_ISC_EB <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","ISC_EB", "NotchCphRNAi_vs_ctrl_ISC_EB_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "ISC_EB", "NotchCphRNAi_vs_ctrl_ISC_EB_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchCphRNAi")
 
-
 MAST_diff_expr_NotchRNAi_EB <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","EB", "NotchRNAi_vs_ctrl_EB_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "EB", "NotchRNAi_vs_ctrl_EB_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchRNAi")
 
 MAST_diff_expr_NotchCphRNAi_EB <- data.table::fread(
-    here::here("output","differential_expression","FindMarkers_MAST","EB", "NotchCphRNAi_vs_ctrl_EB_MAST.tsv"),
-    data.table = F) %>% 
+    here::here("output", "differential_expression", "FindMarkers_MAST", "EB", "NotchCphRNAi_vs_ctrl_EB_MAST.tsv"),
+    data.table = F
+) %>%
     mutate(condition = "NotchCphRNAi")
 
-interesting_genes <- c("E(spl)malpha-BFM", "klu", "Dl", "Swim", "E(spl)mbeta-HLH", "Myc", "spdo", "sli", "crol", "endos", "arm", "msi", "Non1", "mnb", "sima", "Mad", "path", "Egfr", "mira", "EcR", "N", "mip40", "CycA", "InR", "Dp", "esg", "kuz", "kibra", "Cdc7", "grp", "Pdi", "Cph", "sc")
-
+interesting_genes <- c(
+    "E(spl)malpha-BFM", "klu", "Dl", "Swim", "E(spl)mbeta-HLH",
+    "Myc", "spdo", "sli", "crol", "endos", "arm", "msi", "Non1", "mnb", "sima",
+    "Mad", "path", "Egfr", "mira", "EcR", "N", "mip40", "CycA", "InR", "Dp",
+    "esg", "kuz", "kibra", "Cdc7", "grp", "Pdi", "Cph", "sc"
+)
 ```
 
 ## ISC
 ```{r}
 differentially_expressed_genes_isc <- bind_rows(
     MAST_diff_expr_NotchRNAi_ISC, MAST_diff_expr_NotchCphRNAi_ISC
-    )
+)
 
 pvalue_threshold = 1
 p <- differentially_expressed_genes_isc %>% 
@@ -95,10 +103,9 @@ p <- differentially_expressed_genes_isc %>%
                     max.overlaps = Inf, size=5, box.padding = 0.5)+
     ggtitle("ISC")
 
-
 ggsave(
     plot = p,
-    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9D_correlation_plot_ISC.pdf"),
+    filename = here::here("scRNAseq", "plots", "sup", "EV7F_correlation_plot_ISC.pdf"),
     width = 3.9,
     height = 3.1,
     scale=2.5
@@ -109,7 +116,7 @@ ggsave(
 ```{r}
 differentially_expressed_genes_EB <- bind_rows(
     MAST_diff_expr_NotchRNAi_EB, MAST_diff_expr_NotchCphRNAi_EB
-    )
+)
 
 pvalue_threshold = 1
 p <- differentially_expressed_genes_EB %>% 
@@ -134,21 +141,22 @@ p <- differentially_expressed_genes_EB %>%
                     max.overlaps = Inf, size=5, box.padding = 0.5)+
     ggtitle("EB")
 
-
 ggsave(
     plot = p,
-    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9E_correlation_plot_EB.pdf"),
+    filename = here::here("scRNAseq", "plots", "sup", "EV7G_correlation_plot_EB.pdf"),
     width = 3.9,
     height = 3.1,
-    scale=2.5
+    scale = 2.5
 )
+
 ```
+
 
 ## ISC_EB
 ```{r}
 differentially_expressed_genes_ISC_EB <- bind_rows(
     MAST_diff_expr_NotchRNAi_ISC_EB, MAST_diff_expr_NotchCphRNAi_ISC_EB
-    )
+)
 
 pvalue_threshold = 1
 p <- differentially_expressed_genes_ISC_EB %>% 
@@ -176,14 +184,12 @@ p <- differentially_expressed_genes_ISC_EB %>%
 
 ggsave(
     plot = p,
-    filename = here::here("scRNAseq", "plots", "sup", "ExtFig9F_correlation_plot_ISC_EB.pdf"),
+    filename = here::here("scRNAseq", "plots", "sup", "EV7H_correlation_plot_ISC_EB.pdf"),
     width = 3.9,
     height = 3.1,
     scale=2.5
 )
 ```
-
-
 
 
 ```{r}

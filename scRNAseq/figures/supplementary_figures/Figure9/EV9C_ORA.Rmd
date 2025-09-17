@@ -1,5 +1,5 @@
 ---
-title: "Supp Fig 11 Cph Up ORA"
+title: "EV9C Cph Up ORA"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -24,7 +24,9 @@ source(here("helper_functions.R"))
 ```
 
 ```{r}
-differentially_expressed_genes <- data.table::fread(here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"), data.table = F)
+differentially_expressed_genes <- data.table::fread(here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"),
+    data.table = F
+)
 
 setEnrichrSite("FlyEnrichr")
 dbs <- c(
@@ -61,8 +63,6 @@ library(org.Dm.eg.db)
 
 # rrvgo needs a mapping of GO terms to genes.
 semdata <- GOSemSim::godata(org.Dm.eg.db, ont = "BP", keytype = "ENTREZID")
-
-
 options(warn = 1)
 for (direction in names(enrichr_res)) {
     print(direction)
@@ -82,24 +82,6 @@ for (direction in names(enrichr_res)) {
         next()
     }
 
-    if (nrow(GO_BP_filtered) == 1) {
-        dotplot <- ggplot(GO_BP_filtered, aes(x = Combined.Score, y = Term)) +
-            geom_segment(aes(xend = 0, yend = Term), size = 1.2) +
-            geom_point(size = 5) +
-            theme_Publication() +
-            ylab("Gene Set") +
-            xlab("Enrichment Score") +
-            ggtitle(paste(condition, celltype, direction))
-
-        ggsave(
-            filename = here(
-                "scRNAseq", "analyses", "CphUp_analyses_tmp", "imgs", "ORA", str_interp("dotplot_GO_BP_CphUp_ISC_${direction}.pdf")
-            ),
-            plot = dotplot, height = 8, width = 7.8
-        )
-        next()
-    }
-
 
     # calculate similarity of remaining terms
     simMatrix <- calculateSimMatrix(GO_BP_filtered$ID,
@@ -109,24 +91,18 @@ for (direction in names(enrichr_res)) {
         method = "Rel"
     )
 
-
     reducedTerms <- reduceSimMatrix(simMatrix,
         setNames(GO_BP_filtered$Combined.Score, GO_BP_filtered$ID),
         threshold = 0.8,
         orgdb = "org.Dm.eg.db"
     )
 
-    # save treemap
-    pdf(here(
-        "scRNAseq", "analyses", "CphUp_analyses_tmp",
-        "imgs", "ORA", str_interp("treeplot_GO_BP_CphUp_ISC_${direction}.pdf")
-    ), width = 7.8, height = 6)
-    treemap_plot <- treemapPlot(reducedTerms, title = paste("ISC", direction))
-    dev.off()
-
     # add the parent term back to the main df:
-    GO_BP_filtered <- left_join(GO_BP_filtered, reducedTerms %>% dplyr::select(ID = go, parentTerm)) %>% tidyr::drop_na()
-
+    GO_BP_filtered <- left_join(
+        GO_BP_filtered,
+        reducedTerms %>% dplyr::select(ID = go, parentTerm)
+    ) %>% tidyr::drop_na()
+    
     # collapse the dataframe to one row per parent term
     GO_BP_collapsed <- GO_BP_filtered %>%
         group_by(parentTerm) %>%
@@ -142,6 +118,7 @@ for (direction in names(enrichr_res)) {
         mutate(parentTerm = fct_reorder(parentTerm, mean_zscore)) %>%
         mutate(n = as.numeric(n))
 
+
     dotplot <- ggplot(GO_BP_collapsed, aes(x = mean_zscore, y = parentTerm)) +
         geom_segment(aes(xend = 0, yend = parentTerm), size = 1.2) +
         geom_point(aes(color = n), size = 5) +
@@ -155,7 +132,7 @@ for (direction in names(enrichr_res)) {
 
     ggsave(
         filename = here(
-            "scRNAseq", "plots", "sup", str_interp("ExtFig11_ORA_dotplot_ISC_${direction}.pdf")
+            "scRNAseq", "plots", "sup", str_interp("EV9C_ORA_ISC_${direction}.pdf")
         ),
         plot = dotplot, height = 10, width = 11
     )

@@ -1,5 +1,5 @@
 ---
-title: "Supp Fig 11 Cph Up Heatmaps"
+title: "EV9 Cph Up Heatmaps"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -47,16 +47,40 @@ vst_corrected <- limma::removeBatchEffect(vst_data,
     batch = substr(colnames(vst_data), 1, 4)
 )
 
-
-
-
 terms_of_interest <- c(
-    "autophagic cell death",
-    "regulation of autophagy",
-    "autophagosome assembly",
-    "regulation of apoptotic process",
     "positive regulation of apoptotic process",
-    "positive regulation of programmed cell death")
+    "regulation of autophagy",
+    "autophagic cell death"
+)
+
+differentially_expressed_genes <- data.table::fread(here::here("output", "differential_expression", "pseudobulk_CphUp", "ISC", "edgeR_diff_expr.tsv"),
+    data.table = F
+)
+
+setEnrichrSite("FlyEnrichr")
+dbs <- c(
+    "GO_Biological_Process_2018",
+    "KEGG_2019", "WikiPathways_2018"
+)
+
+enrichr_res <- lapply(setNames(c("up", "down"), c("up", "down")), function(dir_) {
+    print(dir_)
+    if (dir_ == "up") {
+        genes <- differentially_expressed_genes %>%
+            filter(logFC > 1) %>%
+            filter(p_adj < 0.05) %>%
+            pull(gene)
+        print(length(genes))
+    } else {
+        genes <- differentially_expressed_genes %>%
+            filter(logFC < -1) %>%
+            filter(p_adj < 0.05) %>%
+            pull(gene)
+        print(length(genes))
+    }
+    ora_res_tmp <- enrichr(genes, dbs)
+    return(ora_res_tmp)
+})
 
 for (term in terms_of_interest){
     genes_of_interest <- enrichr_res$up$GO_Biological_Process_2018 %>% 
@@ -86,7 +110,7 @@ for (term in terms_of_interest){
         name = "logFC",
         col = col_fun)
     
-    pdf(here("scRNAseq", "plots", "sup", str_interp("ExtFig11_ORA_heatmap${term}.pdf")),
+    pdf(here("scRNAseq", "plots", "sup", str_interp("EV9D_ORA_heatmap${term}.pdf")),
         width = 10/1.5, height = 7.7/1.5)
     draw(hmap, column_title  = term)
     dev.off()
