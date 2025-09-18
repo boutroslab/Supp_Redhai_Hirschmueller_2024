@@ -22,7 +22,7 @@ seurat$celltype_manual <- factor(seurat$celltype_manual,
 )
 
 # remove unnecessary data.
-reductions <- c("pca", "phate", "umap")
+reductions <- c("pca", "umap")
 dim_data <- data.frame(CellID = rownames(seurat@meta.data))
 
 for (reduction in reductions) {
@@ -49,7 +49,7 @@ dimnames(empty_matrix) <- dimnames(seurat_small)
 seurat_small <- SetAssayData(seurat_small, slot = "counts", new.data = empty_matrix)
 
 # only meta data that is relevant
-seurat_small@meta.data <- seurat_small@meta.data[, c("celltype_manual", "perturbation")]
+seurat_small@meta.data <- seurat_small@meta.data[, c("celltype_manual", "perturbation", "region_prediction")]
 
 all(Cells(seurat_small) == rownames(dim_data))
 
@@ -82,7 +82,7 @@ seurat$celltype_manual <- factor(seurat$celltype_manual,
 )
 
 # remove unnecessary data.
-reductions <- c("pca", "phate", "umap")
+reductions <- c("pca", "umap")
 dim_data <- data.frame(CellID = rownames(seurat@meta.data))
 
 for (reduction in reductions) {
