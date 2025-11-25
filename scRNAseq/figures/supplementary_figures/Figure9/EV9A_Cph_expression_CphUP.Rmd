@@ -37,6 +37,17 @@ seurat <- seurat[, seurat$perturbation %in% c("CphUp", "ctrl")]
 seurat$perturbation <- factor(seurat$perturbation,
     levels = c("ctrl", "CphUp")
 )
+ISC <- seurat[, seurat$celltype_manual == "ISC"]
+Idents(seurat) <- seurat$perturbation
+res <- FindMarkers(
+        seurat,
+        ident.1 = "CphUp",
+        ident.2 = "ctrl",
+        test.use = "MAST",
+        logfc.threshold = 0.1,
+        min.pct = 0.01
+    ) %>%
+    rownames_to_column("gene")
 ```
 
 
@@ -91,6 +102,10 @@ jitter_plot_fun <- function(srt, gene, population) {
 }
 
 p <- jitter_plot_fun(seurat[, seurat$celltype_manual == "ISC"], "CG9650", "ISC")
+
+
+
+
 
 annotation_df <- data.frame(
     dummy = c("A", "B"),

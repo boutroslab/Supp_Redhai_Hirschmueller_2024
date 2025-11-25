@@ -43,35 +43,25 @@ seurat@meta.data$sc_expression <- ifelse(
     "low"
 ) %>% factor(., levels = c("low", "high"))
 
-
-vln_plot_gene <- function(gene) {
-    FetchData(seurat[, seurat$high_res_annotation == "ISC"], c("sc_expression", gene)) %>%
-        ggplot(., aes(x = sc_expression, y = !!sym(gene), color = sc_expression, fill = sc_expression)) +
-        geom_violin(
-            mapping = aes(x = sc_expression, y = !!sym(gene), color = sc_expression),
-            adjust = 0.9, trim = TRUE, scale = "width", inherit.aes = F, show.legend = F,
-            linewidth = 0.5
-        ) +
-        geom_quasirandom(size = 0.3, stroke = 0.2, bandwidth = 1, shape = 21, dodge.width = 0.9) +
-        theme_Publication_side_legend() +
-        NoLegend() +
-        scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-        stat_summary(
-            fun = mean, geom = "point", shape = 8, color = "black", stroke = 0.85, show.legend = F,
-            aes(group = sc_expression), position = position_dodge(width = 0.9)
-        ) +
-        ylab(str_interp("${gene} expression\n(logcounts)")) +
-        xlab("sc expression status") +
-        scale_color_manual(values = c("#5aba6f", "#077a20")) +
-        scale_fill_manual(values = alpha(c("#5aba6f", "#077a20"), 0.3)) +
-        ggsignif::geom_signif(
-            comparisons = list(c("high", "low")),
-            map_signif_level = TRUE, textsize = 6, color = "black"
-        ) +
-        guides(color = guide_legend(override.aes = list(size = 2, stroke = 0, shape = 16))) # Custom legend
-}
-
 seurat_iscs <- seurat[, seurat$high_res_annotation == "ISC"]
+
+DefaultAssay(seurat_iscs) <- "RNA"
+Idents(seurat_iscs) <- seurat_iscs$sc_expression  # "low" vs "high"
+
+genes_of_interest <- c("CycE", "CycA", "E(spl)malpha-BFM", "klu")
+
+res <- FindMarkers(
+        seurat_iscs,
+        ident.1 = "high",
+        ident.2 = "low",
+        test.use = "MAST",
+        logfc.threshold = 0.2,
+        min.pct = 0.01
+    ) %>%
+    rownames_to_column("gene")
+
+res %>% filter(gene %in% genes_of_interest)
+
 
 
 p <- FetchData(seurat_iscs, c("sc_expression", "CycE", "CycA", "E(spl)malpha-BFM","klu")) %>%
