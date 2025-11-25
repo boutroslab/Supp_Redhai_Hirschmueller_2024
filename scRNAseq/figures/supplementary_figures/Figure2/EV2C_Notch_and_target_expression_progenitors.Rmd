@@ -41,6 +41,12 @@ progenitors <- progenitors[, !(mask1 | mask2)]
 
 
 ```{r}
+
+### FOR P VALUES: see script: analyses/11_differential_gene_expression/DGE_profiling_MELD.Rmd
+diff_res <- data.table::fread(
+    here("output", "differential_expression", "pseudobulk_coarse_meld", "Progenitor",   "edgeR_diff_expr.tsv")
+    )
+
 genes <- c("N")
 
 p <- FetchData(progenitors, c(genes, "perturbation")) %>%

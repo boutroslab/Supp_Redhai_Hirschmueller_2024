@@ -25,6 +25,28 @@ source(here("plot_theme.R"))
 source(here("helper_functions.R"))
 ```
 
+```{r}
+get_pvals_for_celltype <- function(seurat_obj,
+                                   celltype,
+                                   group1 = "notch", 
+                                   group2 = "ctrl") {
+  tmp <- seurat_obj[, seurat_obj$high_res_annotation == celltype]
+
+  DefaultAssay(tmp) <- "RNA"
+  Idents(tmp) <- tmp$perturbation
+
+  res <- FindMarkers(
+    tmp,
+    ident.1 = group1,
+    ident.2 = group2,
+    test.use = "MAST",
+    min.pct = 0.01
+  ) %>%
+    rownames_to_column("gene") 
+
+  return(res)
+}
+```
 
 ```{r}
 progenitors <- readRDS(here("output", "Ctrl_NotchKO_progenitors_integrated_meld.rds"))
@@ -33,6 +55,9 @@ progenitors$high_res_annotation <- factor(progenitors$high_res_annotation,
     levels =
         c("ISC", "EEP"),
 )
+
+isc_pvals <- get_pvals_for_celltype(progenitors, "ISC")
+eep_pvals <- get_pvals_for_celltype(progenitors, "EEP")
 
 # Create an annotation dataframe
 annotation_df <- data.frame(

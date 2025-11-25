@@ -27,6 +27,7 @@ source(here("helper_functions.R"))
 ```
 
 
+
 ```{r}
 seurat <- readRDS(here("output", "RNAi_experiments_integrated.rds"))
 progenitors <- seurat[, seurat$high_res_annotation %in% c("ISC", "EEP", "EB")]
@@ -41,6 +42,41 @@ progenitors$dummy <- case_when(
 progenitors$perturbation <- factor(progenitors$perturbation,
     levels = c("ctrl", "NotchRNAi", "NotchCphRNAi")
 )
+
+DefaultAssay(progenitors) <- "RNA"
+Idents(progenitors) <- progenitors$perturbation
+
+gene_of_interest <- "sff"
+
+comparisons <- list(
+  c("NotchRNAi", "ctrl"),
+  c("NotchRNAi", "NotchCphRNAi")
+)
+
+progenitor_pvals <- parallel::mclapply(comparisons, function(comp) {
+  res <- FindMarkers(
+    progenitors,
+    ident.1 = comp[1],
+    ident.2 = comp[2],
+    test.use = "MAST",
+    min.pct = 0.01,
+    logfc.threshold = 0.01
+  ) %>%
+    rownames_to_column("gene") %>%
+    mutate(comparison = paste0(comp[1], "_vs_", comp[2])) 
+
+  res
+}, mc.cores=2) %>%
+  bind_rows()
+
+progenitor_pvals
+
+```
+
+
+
+```{r}
+
 
 jitter_plot_fun <- function(srt, gene, population) {
     mdata <- srt@meta.data[, c("tmp_celltype", "perturbation", "dummy")]

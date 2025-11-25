@@ -43,6 +43,12 @@ progenitors <- progenitors[, !(mask1 | mask2)]
 ```{r}
 genes <- c("sc", "phyl", "ase", "Cdk1", "CycA", "CycB")
 
+diff_res <- data.table::fread(
+    here("output", "differential_expression", "pseudobulk_coarse_meld", "Progenitor",   "edgeR_diff_expr.tsv")
+    )
+
+diff_res %>% filter(gene %in% genes)
+
 p <- FetchData(progenitors, c(genes, "perturbation")) %>%
     rownames_to_column("id") %>%
     pivot_longer(-c(id, perturbation)) %>%
