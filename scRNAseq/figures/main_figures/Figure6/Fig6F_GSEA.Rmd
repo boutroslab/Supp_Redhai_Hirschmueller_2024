@@ -112,6 +112,7 @@ terms_to_visualize <- c(
     "enrichR_GO_Biological_Process_2018_regulation of transcription initiation from RNA polymerase II promoter (GO:0060260)"
 )
 
+
 plot_df_NotchCphRNAi <- gsea_NotchCphRNAi@result %>% 
     mutate(pathway = str_remove_all(ID, "HALLMARK_")) %>% 
     mutate(pathway = str_remove_all(pathway, "enrichR_GO_Biological_Process_2018_")) %>% 
