@@ -59,8 +59,8 @@ special_dimplot <- function(seurat, feature, dim_reduction = "umap", ...) {
 
 
 ```{r}
-seurat <- readRDS(here::here("output", "Ctrl_Notch_NotchCphRNAi_integrated_scent.rds"))
-
+seurat <- readRDS(here::here("output", "RNAi_experiments_integrated.rds"))
+seurat <- seurat[, seurat$perturbation %in% c("ctrl", "NotchCphRNAi", "NotchRNAi")]
 seurat@meta.data$tmp_celltype <- case_when(
     seurat$high_res_annotation == "EEP" ~ "EEP",
     T ~ seurat$celltype_manual
