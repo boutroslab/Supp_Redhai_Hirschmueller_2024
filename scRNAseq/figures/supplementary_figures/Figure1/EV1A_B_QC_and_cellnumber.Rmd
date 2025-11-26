@@ -33,7 +33,9 @@ Highlight the batch effects for our data.
 ########
 # CTRL #
 ########
-ctrl <- readRDS(here("output", "ctrlKO_seurat_integrated_annotated_high_res.rds"))
+combined <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+DefaultAssay(combined) <- "RNA"
+ctrl <- combined[,combined$perturbation == "ctrl"]
 ctrl <- SplitObject(ctrl, split.by = "orig.ident")
 ctrl_merged <- merge(ctrl$TX22, y = ctrl$TX23)
 ctrl_merged <- run_seurat_steps(ctrl_merged) %>%
@@ -63,7 +65,7 @@ ctrl_umap <- new_dimplot(ctrl_merged,
 #########
 # NOTCH #
 #########
-notch <- readRDS(here("output", "notchKO_seurat_integrated_annotated_high_res.rds"))
+notch <- combined[,combined$perturbation == "notch"]
 notch <- SplitObject(notch, split.by = "orig.ident")
 notch_merged <- merge(notch$TX22, y = notch$TX23)
 notch_merged <- run_seurat_steps(notch_merged) %>%

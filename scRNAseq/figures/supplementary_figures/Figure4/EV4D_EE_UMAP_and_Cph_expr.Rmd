@@ -36,7 +36,9 @@ set.seed(123)
 
 ```{r}
 # load the annotated seurat object
-ctrl <- readRDS(here("output", "ctrlKO_seurat_integrated_annotated_high_res.rds"))
+combined <- readRDS(here("output", "Ctrl_NotchKO_integrated_scent.rds"))
+DefaultAssay(combined) <- "RNA"
+ctrl <- combined[,combined$perturbation == "ctrl"]
 
 # select EE cells
 DefaultAssay(ctrl) <- "RNA"
@@ -82,7 +84,8 @@ EE_ctrl_integrated <- RunUMAP(EE_ctrl_integrated,
 
 ```{r}
 # load the annotated seurat object
-notch <- readRDS(here("output", "notchKO_seurat_integrated_annotated_high_res.rds"))
+notch <- combined[,combined$perturbation == "notch"]
+
 # select EE cells
 DefaultAssay(notch) <- "RNA"
 EE_notch <- DietSeurat(notch, assays = "RNA")[, notch$celltype_manual == "EE"]
