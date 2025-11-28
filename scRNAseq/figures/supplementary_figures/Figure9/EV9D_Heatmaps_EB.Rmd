@@ -1,0 +1,153 @@
+---
+title: "Figure 8D Heatmaps"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+set.seed(123)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(enrichR)
+library(viridis)
+library(Seurat)
+library(ComplexHeatmap)
+library(circlize)
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+### Introduction
+For EBs, we do not see the autophagy/apoptosis related terms.
+
+```{r}
+differentially_expressed_genes <- data.table::fread(
+    here::here("output", "differential_expression", "pseudobulk_CphUp", "EB", "edgeR_diff_expr.tsv"),
+    data.table = F
+)
+
+gene_sets <- readRDS(here::here("output", "gene_sets.rds"))
+
+ranked_degs <- differentially_expressed_genes %>%
+    select(gene, logFC, p) %>%
+    mutate(stat = sign(logFC) * -log10(p)) %>%
+    arrange(-stat) %>% 
+    select(gene, stat) %>%
+    deframe() 
+    
+gsea_result <- GSEA(ranked_degs,
+    TERM2GENE = gene_sets$enrichR_GO_Biological_Process_2018,
+    eps=0
+)
+
+gsea_result@result %>% View()
+
+```
+
+
+
+## Create Heatmaps
+```{r}
+seurat <- readRDS(here("output", "RNAi_experiments_integrated.rds"))
+seurat <- seurat[, seurat$perturbation %in% c("ctrl", "CphUp")]
+
+seurat <- seurat[, seurat$high_res_annotation == "EB"]
+sce <- as.SingleCellExperiment(seurat)
+
+sce$sample_id <- factor(sce$orig.ident.unique, levels = sce$orig.ident.unique %>% unique())
+sce$cluster_id <- "EB"
+sce$group_id <- factor(sce$perturbation, levels = sce$perturbation %>% unique())
+
+# batch correct data
+whole_pseudobulk <- glmGamPoi::pseudobulk(sce,
+    group_by = vars(sample_id, cluster_id, group_id)
+)
+
+vst_data <- DESeq2::vst(counts(whole_pseudobulk))
+vst_corrected <- limma::removeBatchEffect(vst_data,
+    batch = substr(colnames(vst_data), 1, 4)
+)
+
+# Define gene lists for each term (order preserved)
+gene_lists <- list(
+    "positive regulation of apoptotic process" = c(
+        "hid",
+        "CycE",
+        "Tspo",
+        "aos",
+        "hppy",
+        "Lerp",
+        "rdx",
+        "Atg1",
+        "EcR",
+        "sigmar"
+    ),
+    "regulation of autophagy" = c(
+        "DOR",
+        "Hsp67Bc",
+        "Dronc",
+        "daw",
+        "Atg8a",
+        "Lerp",
+        "BI-1",
+        "Iml1",
+        "Myc",
+        "Atg1",
+        "EcR",
+        "sigmar"
+    ),
+    "autophagic cell death" = c(
+        "hid",
+        "rpr",
+        "CG14995",
+        "drpr",
+        "BI-1",
+        "Atg17",
+        "crq",
+        "EcR"
+    )
+)
+
+# Calculate logFC data once
+mean_ctrl_expr <- vst_corrected[, c(1, 2)] %>% rowMeans()
+logFC_data <- vst_corrected - mean_ctrl_expr
+col_fun <- colorRamp2(c(-2, 0, 2), c("#02fdff", "steelblue", "red"))
+
+column_ha <- HeatmapAnnotation(
+    batch = c("Replicate 1", "Replicate 2", "Replicate 1", "Replicate 2"),
+    col = list(batch = c("Replicate 1" = "#41C853", "Replicate 2" = "#f6b999"))
+)
+
+# Create heatmaps for each term
+for (term in names(gene_lists)){
+    genes_of_interest <- gene_lists[[term]]
+    
+    hmap <- Heatmap(logFC_data[genes_of_interest, ],
+        cluster_columns = FALSE,
+        show_row_dend = FALSE,
+        cluster_rows = FALSE,  # Changed to FALSE to preserve order
+        top_annotation = column_ha,
+        column_split = factor(c("Ctrl", "Ctrl", "CphUp", "CphUp"), levels=c("Ctrl","CphUp")),
+        show_column_names = FALSE,
+        name = "logFC",
+        col = col_fun)
+    
+    pdf(here("scRNAseq", "plots", "sup", str_interp("EV9D_ORA_heatmap_EB_${term}.pdf")),
+        width = 10/1.5, height = 7.7/1.5)
+    draw(hmap, column_title = term)
+    dev.off()
+}
+```
+
+
+```{r}
+sessionInfo()
+```

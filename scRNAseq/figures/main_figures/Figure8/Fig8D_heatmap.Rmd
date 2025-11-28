@@ -70,7 +70,7 @@ hmap <- Heatmap(logFC_data[genes_of_interest, ],
     name = "logFC",
     col = col_fun)
 
-pdf(here::here("scRNAseq", "plots", "main", "Fig8D_heatmap.pdf"),,
+pdf(here::here("scRNAseq", "plots", "main", "Fig8D_heatmap.pdf"),
     width = 10/1.5, height = 7.7/1.5)
 draw(hmap)
 dev.off()
