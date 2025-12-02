@@ -64,6 +64,7 @@ res_across_conditions <- lapply(c("low","high"), function(delta_status) {
         mutate(Delta_status = delta_status)
 })
 
+res_across_conditions %>% filter(gene=="CG9650")
 ```
 
 

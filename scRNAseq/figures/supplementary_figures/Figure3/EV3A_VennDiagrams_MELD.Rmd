@@ -164,7 +164,7 @@ tmp <- venn.diagram(
         cat.fontfamily = "sans"
 )
 
-pdf(file = here("scRNAseq","plots", "sup", "ExtFig3A_VennDiagram_sig_up.pdf"))
+pdf(file = here("scRNAseq","plots", "sup", "EV3A_VennDiagram_sig_up.pdf"))
 grid.draw(tmp)
 grid.text("Sig. upregulated genes", x = 0.5, y = 0.95, gp = gpar(fontsize = 14, fontface = "bold"))
 dev.off()
@@ -210,7 +210,7 @@ tmp <- venn.diagram(
         cat.fontfamily = "sans"
 )
 
-pdf(file = here("scRNAseq","plots", "sup", "ExtFig3A_VennDiagram_sig_down.pdf"))
+pdf(file = here("scRNAseq","plots", "sup", "EV3A_VennDiagram_sig_down.pdf"))
 grid.draw(tmp)
 grid.text("Sig. downregulated genes", x = 0.5, y = 0.95, gp = gpar(fontsize = 14, fontface = "bold"))
 dev.off()

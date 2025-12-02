@@ -1,5 +1,5 @@
 ---
-title: "Check expression for certain genes"
+title: "GSEAS"
 author: "Nick Hirschmüller"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document

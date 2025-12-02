@@ -82,7 +82,7 @@ p <- special_dimplot(seurat,
     theme(
         legend.position = "none"
     ) +
-    scale_y_reverse()
+    scale_x_reverse()
 
 ggsave(
     plot = p,
@@ -103,7 +103,7 @@ p <- new_dimplot(seurat,
     theme(
         plot.title = element_blank()
     ) +
-    scale_y_reverse()
+    scale_x_reverse()
 
 
 ggsave(

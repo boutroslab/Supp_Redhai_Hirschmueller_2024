@@ -112,7 +112,7 @@ combined <- wrap_plots(celltype_umap, perturbation_umap, likelihood_umap, predic
 combined %>%
     ggsave(
         plot = .,
-        filename = here("scRNAseq","plots", "sup", "ExtFig3A_MELD_eval.pdf"),
+        filename = here("scRNAseq","plots", "sup", "EV3A_MELD_eval.pdf"),
         width = 10,
         height = 7
     )

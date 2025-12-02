@@ -78,7 +78,7 @@ p <- FetchData(progenitors, c(genes, "perturbation")) %>%
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig3C_gene_expression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "EV3C_gene_expression.pdf"),
     width = 2.7,
     height = 3,
     scale = 2

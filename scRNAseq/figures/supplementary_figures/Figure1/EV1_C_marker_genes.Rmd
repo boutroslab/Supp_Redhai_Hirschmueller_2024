@@ -67,7 +67,7 @@ p <- FetchData(ctrl, c(genes, "celltype_manual")) %>%
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig2C_marker_gene_expression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "EV1C_marker_gene_expression.pdf"),
     width = 4.8,
     height = 4,
     scale = 1.5

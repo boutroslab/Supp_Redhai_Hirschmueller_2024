@@ -81,7 +81,7 @@ p <- ggplot(plot_data, aes(x = UMAP_1, y = UMAP_2, color = expression_status, si
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "EV6A_Cph_sc_expressionexpression.pdf"),
+    filename = here("scRNAseq","plots", "sup", "EV6A_Cph_sc_expression.pdf"),
     width = 6,
     height = 2.5,
     scale = 1.7

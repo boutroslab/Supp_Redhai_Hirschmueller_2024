@@ -104,9 +104,6 @@ jitter_plot_fun <- function(srt, gene, population) {
 p <- jitter_plot_fun(seurat[, seurat$celltype_manual == "ISC"], "CG9650", "ISC")
 
 
-
-
-
 annotation_df <- data.frame(
     dummy = c("A", "B"),
     y_position_ = c(3.6), # Adjust as needed

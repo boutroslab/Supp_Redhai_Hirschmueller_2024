@@ -101,7 +101,7 @@ plot <- wrap_plots(ctrl_umap, notch_umap, ncol = 2) +
 
 
 ggsave(plot,
-    filename = here("scRNAseq","plots", "sup", "ExtFig1A_Batch_UMAPs.pdf"),
+    filename = here("scRNAseq","plots", "sup", "EV1A_Batch_UMAPs.pdf"),
     width = 8, height = 4.5
 )
 ```
@@ -165,7 +165,7 @@ p <- ggplot(df, aes(dataset, cells, fill = dataset)) +
 
 ggsave(
     plot = p,
-    filename = here("scRNAseq","plots", "sup", "ExtFig1D_cellnumbers.pdf"),
+    filename = here("scRNAseq","plots", "sup", "EV1B_cellnumbers.pdf"),
     width = 7, height = 5.02, units = "in"
 )
 ```

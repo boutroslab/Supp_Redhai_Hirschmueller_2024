@@ -30,7 +30,6 @@ source(here("helper_functions.R"))
 
 
 ```{r}
-seurat <- readRDS(here("output", "seuratKO_slingshot_object_integrated.rds"))
 gam_fit_6 <- readRDS(here("output", "tradeSeq_fit_condiments_strict.rds"))
 condRes_split <- readRDS(here("output", "tradeSeq_condition_test_res_strict.rds"))
 

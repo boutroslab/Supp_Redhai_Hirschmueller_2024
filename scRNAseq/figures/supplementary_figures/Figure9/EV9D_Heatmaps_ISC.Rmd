@@ -110,7 +110,7 @@ for (term in terms_of_interest){
         name = "logFC",
         col = col_fun)
     
-    pdf(here("scRNAseq", "plots", "sup", str_interp("EV9D_ORA_heatmap${term}.pdf")),
+    pdf(here("scRNAseq", "plots", "sup", str_interp("EV9D_ORA_heatmap_${term}.pdf")),
         width = 10/1.5, height = 7.7/1.5)
     draw(hmap, column_title  = term)
     dev.off()
