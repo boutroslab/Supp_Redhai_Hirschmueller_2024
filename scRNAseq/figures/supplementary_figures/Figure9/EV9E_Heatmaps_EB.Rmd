@@ -48,7 +48,7 @@ gsea_result <- GSEA(ranked_degs,
     eps=0
 )
 
-gsea_result@result %>% View()
+gsea_result@result 
 
 ```
 
@@ -78,41 +78,14 @@ vst_corrected <- limma::removeBatchEffect(vst_data,
 
 # Define gene lists for each term (order preserved)
 gene_lists <- list(
-    "positive regulation of apoptotic process" = c(
+    "regulation of apoptotic process & autophagy" = c(
         "hid",
-        "CycE",
-        "Tspo",
-        "aos",
-        "hppy",
-        "Lerp",
-        "rdx",
-        "Atg1",
-        "EcR",
-        "sigmar"
-    ),
-    "regulation of autophagy" = c(
-        "DOR",
-        "Hsp67Bc",
-        "Dronc",
-        "daw",
-        "Atg8a",
-        "Lerp",
-        "BI-1",
-        "Iml1",
-        "Myc",
-        "Atg1",
-        "EcR",
-        "sigmar"
-    ),
-    "autophagic cell death" = c(
-        "hid",
-        "rpr",
-        "CG14995",
         "drpr",
-        "BI-1",
+        "sigmar",
+        "Atg8a",
         "Atg17",
-        "crq",
-        "EcR"
+        "Myc",
+        "Atg1"
     )
 )
 
@@ -129,8 +102,14 @@ column_ha <- HeatmapAnnotation(
 # Create heatmaps for each term
 for (term in names(gene_lists)){
     genes_of_interest <- gene_lists[[term]]
+    logFC_data_filtered <- logFC_data %>% 
+        data.frame() %>% 
+        rownames_to_column("gene") %>% 
+        filter(gene %in% genes_of_interest) %>% 
+        column_to_rownames("gene") %>% 
+        as.matrix()
     
-    hmap <- Heatmap(logFC_data[genes_of_interest, ],
+    hmap <- Heatmap(logFC_data_filtered,
         cluster_columns = FALSE,
         show_row_dend = FALSE,
         cluster_rows = FALSE,  # Changed to FALSE to preserve order
