@@ -223,21 +223,23 @@ ee_subtypes_plots <- sapply(unique(plot_df$celltype), simplify = F, function(x) 
 
 ```{r}
 # Combine the plots
-final_plot <- wrap_plots(
-    major_celltypes_plots$ISC, ee_subtypes_plots$EEP, major_celltypes_plots$EE, ee_subtypes_plots$`Tk-EE`, ee_subtypes_plots$`AstC-EE`, major_celltypes_plots$EB,
+final_plot <- (wrap_plots(
+    major_celltypes_plots$ISC, major_celltypes_plots$EEP, major_celltypes_plots$EE, ee_subtypes_plots$`Tk-EE`, ee_subtypes_plots$`AstC-EE`, major_celltypes_plots$EB,
     nrow = 1
 ) & theme(
     axis.title = element_text(size = 9, face = "bold"),
     axis.text = element_text(size = 8),
     strip.text.x = element_text(size = 8, face = "bold"),
     legend.position = "none"
-)
+)) +
+    plot_layout(axes = "collect")
+
 
 ggsave(
     filename = here::here("scRNAseq","plots", "main", "Fig1C_abundance_change.pdf"),
     plot = final_plot,
     width = 8,
-    height = 1.8,
+    height = 2.4,
     scale = 1.5
 )
 ```

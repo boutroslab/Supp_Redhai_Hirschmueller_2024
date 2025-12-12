@@ -47,7 +47,7 @@ seurat <- seurat[, seurat$perturbation %in% c("ctrl", "CphUp")]
 
 
 # we want comparision for ISC and EEs and ISC+EEPs (will be essentially the same as ISC because almost no EEPs in ctrl)
-seurat <- seurat[, !seurat$celltype_manual %in% c("unk", "unk2", "MT", "dEC", "daEC", "EB")]
+seurat <- seurat[, !seurat$celltype_manual %in% c("unk", "unk2", "MT", "dEC", "daEC")]
 seurat <- seurat[, !seurat$high_res_annotation == "EEP"]
 
 seurat@meta.data$tmp_celltype <- case_when(
@@ -113,12 +113,12 @@ p <- ggplot(pca_plot_df, aes(PC1, PC2, color = perturbation, shape = batch, size
     xlab(paste0("PC1: ", round(pca_data$variance[1], 2), "% variance")) +
     ylab(paste0("PC2: ", round(pca_data$variance[2], 2), "% variance")) +
     theme_Publication() +
-    scale_size_manual(values = c(2, 5, 10)) +
+    scale_size_manual(values = c(2, 5, 10,16)) +
     chameleon::scale_color_chameleon()
 
 
 
-celltype_pca <- lapply(c("EE", "EC", "ISC"), function(x) {
+celltype_pca <- lapply(c("EE", "EC", "ISC", "EB"), function(x) {
     mask <- grepl(x, colnames(counts(whole_pseudobulk)))
     vst_data <- DESeq2::vst(counts(whole_pseudobulk)[, mask])
     vst_corrected <- limma::removeBatchEffect(vst_data,

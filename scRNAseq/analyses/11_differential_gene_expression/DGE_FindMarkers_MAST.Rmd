@@ -51,13 +51,16 @@ celltypes <- list(
     c("EB"),
     c("EEP"),
     c("ISC", "EEP"),
-    c("ISC", "EEP", "EB")
+    c("ISC", "EEP", "EB"),
+    c("mEC","aEC","pEC","LFC","Copper")
 )
+
 
 comparisions <- list(
     c("NotchRNAi", "ctrl"),
     c("NotchCphRNAi", "ctrl"),
-    c("NotchRNAi", "NotchCphRNAi")
+    c("NotchRNAi", "NotchCphRNAi"),
+    c("NotchCphRNAi", "ctrl")
 )
 
 for (celltype in celltypes) {

@@ -1,0 +1,171 @@
+---
+title: "EV7 D-E Volcano plots for EGFR and JAK/STAT pathway genes in ECs"
+author: "Nick Hirschmüller"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(here)
+library(patchwork)
+library(ggVennDiagram)
+library(ggrepel)
+library(ggtext)
+
+
+source(here("plot_theme.R"))
+source(here("helper_functions.R"))
+```
+
+
+```{r}
+volcano_plot <- function(df, title_text,
+                         logfc_col = "avg_log2FC",
+                         pval_plot_col = "p_val",      # unadjusted p-value for plotting
+                         pval_filt_col = "p_val_adj",  # adjusted p-value for significance filter
+                         egfr_genes, jak_stat_genes,
+                         fc_thresh = 0.25, max_x = 1.5) {
+
+  df <- df %>%
+    dplyr::filter(!is.na(.data[[logfc_col]]),
+                  !is.na(.data[[pval_plot_col]]),
+                  !is.na(.data[[pval_filt_col]])) %>%
+    dplyr::mutate(
+      is_sig = abs(.data[[logfc_col]]) > fc_thresh & .data[[pval_filt_col]] < 0.05,
+      pathway = dplyr::case_when(
+        gene %in% egfr_genes & gene %in% jak_stat_genes ~ "Both",
+        gene %in% egfr_genes                            ~ "EGFR",
+        gene %in% jak_stat_genes                        ~ "JAK/STAT",
+        TRUE                                            ~ "Other"
+      ),
+      color_group = dplyr::if_else(is_sig, pathway, "Not significant")
+    )
+
+  ggplot(df, aes(x = .data[[logfc_col]],
+                 y = -log10(.data[[pval_plot_col]]),
+                 color = color_group)) +
+    geom_vline(xintercept = c(-fc_thresh, fc_thresh), linetype = "dashed", color = "lightgrey") +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    geom_point(alpha = 0.8, size = 1.4) +
+    scale_x_continuous(limits = c(-max_x, max_x), breaks = seq(-max_x, max_x, by = 1)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+    scale_color_manual(
+      values = c(
+        "EGFR"            = "#1f77b4",
+        "JAK/STAT"        = "#2ca02c",
+        "Both"            = "#d62728",
+        "Other"           = "goldenrod",
+        "Not significant" = "grey70"
+      ),
+      breaks = c("EGFR","JAK/STAT","Both"),
+      labels = c("EGFR signaling","Reg. of JAK/STAT","Both"),
+      name   = NULL
+    ) +
+    labs(
+      x = "log<sub>2</sub> FC",
+      y = "-log<sub>10</sub> P value",
+      title = title_text
+    ) +
+    theme_Publication(base_size = 9) +
+    theme(
+      axis.title.x = ggtext::element_markdown(size = 10),
+      axis.title.y = ggtext::element_markdown(size = 10)
+    ) +
+    ggrepel::geom_text_repel(
+      data = ~ dplyr::filter(.x, is_sig),
+      aes(label = gene),
+      size = 2.4, max.overlaps = 300, box.padding = 0.25, show.legend = FALSE
+    )
+}
+```
+
+
+### Load in all data
+```{r}
+# load in all differential expression results:
+EC_notch_vs_double <- data.table::fread(file = here(
+    "output", "differential_expression", "FindMarkers_MAST", "mEC_aEC_pEC_LFC_Copper",
+    "NotchRNAi_vs_NotchCphRNAi_mEC_aEC_pEC_LFC_Copper_MAST.tsv"
+))
+
+EC_notch_vs_ctrl <- data.table::fread(file = here(
+    "output", "differential_expression", "FindMarkers_MAST", "mEC_aEC_pEC_LFC_Copper",
+    "NotchRNAi_vs_ctrl_mEC_aEC_pEC_LFC_Copper_MAST.tsv"
+))
+```
+
+```{r}
+gene_sets <- readRDS(here::here("output", "gene_sets.rds"))
+go_bp <- gene_sets$enrichR_GO_Biological_Process_2018
+EGFR_pathway_genes <- go_bp %>%
+    filter(grepl("epidermal growth factor receptor signaling", term)) %>%
+    pull(genes) %>%
+    unique()
+jak_stat_pathway_genes <- go_bp %>%
+    filter(grepl("JAK-STAT", term)) %>%
+    pull(genes) %>%
+    unique()
+
+
+# extract the genes of interested and keep track to which pathway they belong. 
+EC_notch_vs_double <- EC_notch_vs_double %>% 
+    filter(gene %in% EGFR_pathway_genes | gene %in% jak_stat_pathway_genes) %>% 
+    mutate(origin = case_when(
+        gene %in% EGFR_pathway_genes & gene %in% jak_stat_pathway_genes ~ "both",
+        gene %in% EGFR_pathway_genes ~ "EGFR",
+        gene %in% jak_stat_pathway_genes ~ "JAK STAT",
+        T ~ "fail"
+    ))
+
+EC_notch_vs_ctrl <- EC_notch_vs_ctrl %>% 
+    filter(gene %in% EGFR_pathway_genes | gene %in% jak_stat_pathway_genes) %>% 
+    mutate(origin = case_when(
+        gene %in% EGFR_pathway_genes & gene %in% jak_stat_pathway_genes ~ "both",
+        gene %in% EGFR_pathway_genes ~ "EGFR",
+        gene %in% jak_stat_pathway_genes ~ "JAK STAT",
+        T ~ "fail"
+    ))
+
+
+p1 <- volcano_plot(
+  df = EC_notch_vs_ctrl,
+  title_text = "ECs: NotchRNAi vs Control",
+  egfr_genes = EGFR_pathway_genes,
+  jak_stat_genes = jak_stat_pathway_genes,
+  max_x = 1.5
+)
+
+p2 <- volcano_plot(
+  df = EC_notch_vs_double,
+  title_text = "ECs: NotchRNAi vs NotchCphRNAi",
+  egfr_genes = EGFR_pathway_genes,
+  jak_stat_genes = jak_stat_pathway_genes,
+  max_x = 1.5
+)
+
+
+combined <- wrap_plots(p1,p2)+
+    plot_layout(axes="collect",  guides = "collect") &
+    theme(legend.position = "bottom")
+
+
+ggsave(
+    plot=combined,
+    filename = here::here("scRNAseq", "plots", "sup", "EV7DE_volcano_plot.pdf"),
+    width=3.2,
+    height=1.7,
+    scale=2.4
+)
+```
+
+
+```{r}
+sessionInfo()
+
+```
+

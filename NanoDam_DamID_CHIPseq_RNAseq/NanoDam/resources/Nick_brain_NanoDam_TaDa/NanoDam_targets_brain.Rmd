@@ -1,5 +1,5 @@
 ---
-    title: "Figure out what peaks correspond to what genes"
+title: "Figure out what peaks correspond to what genes"
 author: "Nick Hirschmüller"
 date: "21/06/2023"
 output: html_document
