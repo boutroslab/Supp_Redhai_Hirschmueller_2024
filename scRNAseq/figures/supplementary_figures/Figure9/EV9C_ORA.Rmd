@@ -117,7 +117,7 @@ for (direction in names(enrichr_res)) {
         ) %>% unlist()) %>%
         mutate(parentTerm = fct_reorder(parentTerm, mean_zscore)) %>%
         mutate(n = as.numeric(n)) %>% 
-        slice_max(., order_by=mean_zscore, n=20)
+        slice_max(., order_by=mean_zscore, n=30)
 
 
     dotplot <- ggplot(GO_BP_collapsed, aes(x = mean_zscore, y = parentTerm)) +
