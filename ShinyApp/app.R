@@ -484,7 +484,7 @@ ui <- dashboardPage(
                 tabName = "about",
 
             h4(
-                "An intrinsic autoinhibitory feedback loop preserves intestinal stem cell maintenance and fate commitment",
+                "Autoinhibitory feedback preserves intestinal stem cell maintenance and fate commitment",
                 align = "center",
                 style = "width: 80%; margin: 0 auto; font-weight: bold; font-style: italic;"
             ),
@@ -495,7 +495,7 @@ ui <- dashboardPage(
             h5(
                 HTML(paste0(
                 "Siamak Redhai<sup>1,2,3</sup><sup>*</sup><sup>#</sup>, ",
-                "Nick Hirschmüller<sup>5</sup><sup>*</sup><sup>†</sup>, ",
+                "Nick Hirschmüller<sup>5</sup><sup>*</sup><sup></sup>, ",
                 "Tianyu Wang<sup>1,2,3</sup>, ",
                 "Tyler Jackson<sup>6</sup>, ",
                 "Stefan Peidli<sup>5</sup>, ",
@@ -565,7 +565,7 @@ ui <- dashboardPage(
             div(style = "margin-bottom: 30px;"),
 
             h3("Abstract", style = "font-weight: bold"),
-            p("Intestinal stem cells (ISCs) continuously renew the gut epithelium by generating regionally specialized cell types, but how they commit to distinct lineages remains poorly defined. Here, we identify a self-limiting transcriptional program, mediated by the zinc-finger transcription factor Chronophage (Cph), that drives ISC maintenance and differentiation into enteroendocrine (EE) cells in different regions of the Drosophila midgut. We show that Cph expression is transiently induced by the proneural factor scute at the onset of ISC-to-EE fate specification. Genetic and single-cell transcriptomics approaches revealed that Cph is required to intrinsically remodel the transcriptome of ISCs and sustains normal lifespan. Genome-wide chromatin profiling demonstrated that Cph directly binds and regulates the expression of key proliferation and differentiation genes, while simultaneously repressing its own expression. This autoinhibitory feedback safeguards ISCs from undergoing autophagy and cell death, thus ensuring proliferation and differentiation are faithfully executed. Our findings highlight a key mechanism that balances ISC maintenance and lineage commitment."),
+            p("Intestinal stem cells (ISCs) continuously renew the gut epithelium by producing specialized cell types, yet the mechanisms that couple ISC renewal with lineage commitment remain poorly characterized. Here, we identify a self-limiting transcriptional program, mediated by the zinc-finger transcription factor *Chronophage* (*Cph*), that promotes both ISC maintenance and differentiation into enteroendocrine (EE) cells in the *Drosophila* midgut. *Cph* expression is transiently induced by the proneural factor *scute* at the onset of ISC-to-EE specification. Genetic and single-cell transcriptomic approaches revealed that *Cph* is required to reprogram ISCs and sustain normal lifespan. Cph binds to genes involved in proliferation and differentiation, and directly represses its own expression. This autoinhibitory feedback safeguards ISCs from accumulating autophagosomes and undergoing cell death, thus preserving ISC function. Our findings uncover a key regulatory mechanism that balances stem cell maintenance and differentiation, highlighting principles relevant to regenerating tissues."),
             p(
                 "This Shiny App allows users to interactively explore the datasets accompanying the publication. ",
                 "The source code for the app can be found on ",
