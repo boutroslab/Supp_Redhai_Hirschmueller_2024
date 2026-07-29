@@ -509,7 +509,7 @@ ui <- dashboardPage(
                 "Lea Bräckow<sup>1,3</sup>, ",
                 "Fillip Port<sup>1,2,3</sup>, ",
                 "David Ibberson<sup>4</sup>, ",
-                "Hongji Le<sup>7</sup>, ",
+                "Hongji Li<sup>7</sup>, ",
                 "Wolfgang Huber<sup>5</sup><sup>#</sup>, ",
                 "Michael Boutros<sup>1,2,3</sup><sup>#</sup>"
                 )),
