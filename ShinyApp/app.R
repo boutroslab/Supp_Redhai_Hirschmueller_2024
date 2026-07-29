@@ -83,7 +83,9 @@ get_condition_config <- function(split_conditions, perturbation_count) {
 
 # Helper function to apply scale transformations
 apply_scale_transform <- function(plot, transform) {
-    if (is.null(transform)) return(plot)
+    if (is.null(transform)) {
+        return(plot)
+    }
 
     switch(transform,
         "scale_x_reverse" = plot + scale_x_reverse(),
@@ -210,185 +212,259 @@ feature_plot_fun <- function(srt, gene, dim_red, order_cells, split_conditions) 
 }
 
 jitter_plot_fun <- function(srt, gene, celltypes, summary_stats, split_conditions, conditions = NULL, use_rnai_colors = FALSE) {
-  mdata <- srt@meta.data[, c("celltype_manual", "perturbation")]
-  exp_data <- FetchData(srt, gene)
-  colnames(exp_data) <- gene
-  stopifnot(all(rownames(mdata) == rownames(exp_data)))
+    mdata <- srt@meta.data[, c("celltype_manual", "perturbation")]
+    exp_data <- FetchData(srt, gene)
+    colnames(exp_data) <- gene
+    stopifnot(all(rownames(mdata) == rownames(exp_data)))
 
-  plot_data <- cbind(mdata, exp_data) %>%
-    filter(celltype_manual %in% celltypes)
+    plot_data <- cbind(mdata, exp_data) %>%
+        filter(celltype_manual %in% celltypes)
 
-  # Filter by specific conditions if provided (for RNAi plots)
-  if (!is.null(conditions)) {
-    plot_data <- plot_data %>% filter(perturbation %in% conditions)
-  }
-
-  # Helper function to add summary statistics
-  add_summary_stats <- function(plot, stats, grouped = FALSE) {
-    if (is.null(stats)) return(plot)
-
-    if ("Include mean" %in% stats) {
-      if (grouped) {
-        plot <- plot + stat_summary(
-          fun = "mean", geom = "point", aes(group = perturbation),
-          color = "black", size = 3, shape = 8, stroke = 1.2,
-          position = position_dodge2(width = 0.75)
-        )
-      } else {
-        plot <- plot + stat_summary(
-          fun = "mean", geom = "point",
-          color = "black", size = 3, shape = 8, stroke = 1.2
-        )
-      }
+    # Filter by specific conditions if provided (for RNAi plots)
+    if (!is.null(conditions)) {
+        plot_data <- plot_data %>% filter(perturbation %in% conditions)
     }
 
-    if ("Include median" %in% stats) {
-      if (grouped) {
-        plot <- plot + stat_summary(
-          fun = "median", geom = "point", aes(group = perturbation),
-          color = "black", size = 3, shape = 2, stroke = 1.2,
-          position = position_dodge2(width = 0.75)
-        )
-      } else {
-        plot <- plot + stat_summary(
-          fun = "median", geom = "point",
-          color = "black", size = 3, shape = 2, stroke = 1.2
-        )
-      }
+    # Helper function to add summary statistics
+    add_summary_stats <- function(plot, stats, grouped = FALSE) {
+        if (is.null(stats)) {
+            return(plot)
+        }
+
+        if ("Include mean" %in% stats) {
+            if (grouped) {
+                plot <- plot + stat_summary(
+                    fun = "mean", geom = "point", aes(group = perturbation),
+                    color = "black", size = 3, shape = 8, stroke = 1.2,
+                    position = position_dodge2(width = 0.75)
+                )
+            } else {
+                plot <- plot + stat_summary(
+                    fun = "mean", geom = "point",
+                    color = "black", size = 3, shape = 8, stroke = 1.2
+                )
+            }
+        }
+
+        if ("Include median" %in% stats) {
+            if (grouped) {
+                plot <- plot + stat_summary(
+                    fun = "median", geom = "point", aes(group = perturbation),
+                    color = "black", size = 3, shape = 2, stroke = 1.2,
+                    position = position_dodge2(width = 0.75)
+                )
+            } else {
+                plot <- plot + stat_summary(
+                    fun = "median", geom = "point",
+                    color = "black", size = 3, shape = 2, stroke = 1.2
+                )
+            }
+        }
+
+        return(plot)
     }
 
-    return(plot)
-  }
+    if (split_conditions == "combined") {
+        p <- ggplot(plot_data, aes(x = celltype_manual, y = !!sym(gene), color = celltype_manual, fill = celltype_manual)) +
+            geom_jitter(size = 0.65, stroke = 0.6, width = 0.2, shape = 21) +
+            geom_violin(
+                adjust = 1, trim = TRUE, color = "black", show.legend = F,
+                scale = "width", fill = "#00000000",
+                width = 0.72
+            ) +
+            theme_Publication() +
+            theme(
+                axis.title.x = element_blank(),
+                legend.position = "none"
+            ) +
+            ylab("Expression\n(logcounts)") +
+            scale_color_manual(values = celltype_colors) +
+            scale_fill_manual(values = alpha(celltype_colors, 0.4)) +
+            scale_y_continuous(expand = expansion(mult = c(0, 0.08)))
 
-  if (split_conditions == "combined") {
-    p <- ggplot(plot_data, aes(x = celltype_manual, y = !!sym(gene), color = celltype_manual, fill = celltype_manual)) +
-      geom_jitter(size = 0.65, stroke = 0.6, width = 0.2, shape = 21) +
-      geom_violin(
-        adjust = 1, trim = TRUE, color = "black", show.legend = F,
-        scale = "width", fill = "#00000000",
-        width = 0.72
-      ) +
-      theme_Publication() +
-      theme(
-        axis.title.x = element_blank(),
-        legend.position = "none"
-      ) +
-      ylab("Expression\n(logcounts)") +
-      scale_color_manual(values = celltype_colors) +
-      scale_fill_manual(values = alpha(celltype_colors, 0.4)) +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.08)))
+        p <- add_summary_stats(p, summary_stats, grouped = FALSE)
+    } else if (split_conditions == "split" || !is.null(conditions)) {
+        p <- ggplot(plot_data, aes(x = celltype_manual, y = !!sym(gene))) +
+            geom_point(
+                mapping = aes(color = perturbation, fill = perturbation), size = 0.65, stroke = 0.4, shape = 21,
+                position = position_jitterdodge()
+            ) +
+            geom_violin(
+                mapping = aes(fill = perturbation),
+                adjust = 1, trim = TRUE,
+                scale = "width", show.legend = F,
+                width = 0.75
+            ) +
+            theme_Publication_side_legend() %+%
+            theme(
+                axis.title.x = element_blank(),
+                legend.text = element_markdown(size = 15),
+                legend.title = element_text(size = 16)
+            ) +
+            ylab("Expression\n(logcounts)") +
+            guides(
+                color = guide_legend(
+                    title = "Condition",
+                    override.aes = list(size = 2, alpha = 1, shape = NULL),
+                    hjust = 0
+                ),
+                fill = "none"
+            ) +
+            scale_y_continuous(expand = expansion(mult = c(0, 0.08)))
 
-    p <- add_summary_stats(p, summary_stats, grouped = FALSE)
+        p <- add_summary_stats(p, summary_stats, grouped = TRUE)
 
-  } else if (split_conditions == "split" || !is.null(conditions)) {
-    p <- ggplot(plot_data, aes(x = celltype_manual, y = !!sym(gene))) +
-      geom_point(
-        mapping = aes(color = perturbation, fill = perturbation), size = 0.65, stroke = 0.4, shape = 21,
-        position = position_jitterdodge()
-      ) +
-      geom_violin(
-        mapping = aes(fill = perturbation),
-        adjust = 1, trim = TRUE,
-        scale = "width", show.legend = F,
-        width = 0.75
-      ) +
-      theme_Publication_side_legend() %+%
-      theme(
-        axis.title.x = element_blank(),
-        legend.text = element_markdown(size = 15),
-        legend.title = element_text(size = 16)
-      ) +
-      ylab("Expression\n(logcounts)") +
-      guides(
-        color = guide_legend(
-          title = "Condition",
-          override.aes = list(size = 2, alpha = 1, shape = NULL),
-          hjust = 0
-        ),
-        fill = "none"
-      ) +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.08)))
-
-    p <- add_summary_stats(p, summary_stats, grouped = TRUE)
-
-    # Apply color schemes
-    if (use_rnai_colors) {
-      p <- p +
-        scale_color_manual(values = color_mapping_rnai) +
-        scale_fill_manual(values = alpha(color_mapping_rnai, 0))
-    } else if (n_distinct(srt$perturbation) == 3) {
-      p <- p +
-        scale_color_manual(
-          values = c("ctrl" = color_mapping[1], "NotchRNAi" = color_mapping[4], NotchCphRNAi = "#00ba38"),
-          labels = c(
-            ctrl = "Control",
-            NotchRNAi = "*Notch*<sup><i>RNAi</i></sup>",
-            NotchCphRNAi = "*Cph*<sup><i>RNAi</i></sup>+*Notch*<sup><i>RNAi</i></sup>"
-          )
-        ) +
-        scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4], "#00ba38"), 0))
-    } else if (n_distinct(srt$perturbation) == 2) {
-      p <- p +
-        scale_color_manual(
-          values = c("ctrl" = color_mapping[1], "notch" = color_mapping[4]),
-          labels = c(
-            ctrl = "Control",
-            notch = "*Notch*<sup><i>sgRNAx2</i></sup>"
-          )
-        ) +
-        scale_fill_manual(values = alpha(c("#00000000", "#00000000"), 0))
+        # Apply color schemes
+        if (use_rnai_colors) {
+            p <- p +
+                scale_color_manual(values = color_mapping_rnai) +
+                scale_fill_manual(values = alpha(color_mapping_rnai, 0))
+        } else if (n_distinct(srt$perturbation) == 3) {
+            p <- p +
+                scale_color_manual(
+                    values = c("ctrl" = color_mapping[1], "NotchRNAi" = color_mapping[4], NotchCphRNAi = "#00ba38"),
+                    labels = c(
+                        ctrl = "Control",
+                        NotchRNAi = "*Notch*<sup><i>RNAi</i></sup>",
+                        NotchCphRNAi = "*Cph*<sup><i>RNAi</i></sup>+*Notch*<sup><i>RNAi</i></sup>"
+                    )
+                ) +
+                scale_fill_manual(values = alpha(c(color_mapping[1], color_mapping[4], "#00ba38"), 0))
+        } else if (n_distinct(srt$perturbation) == 2) {
+            p <- p +
+                scale_color_manual(
+                    values = c("ctrl" = color_mapping[1], "notch" = color_mapping[4]),
+                    labels = c(
+                        ctrl = "Control",
+                        notch = "*Notch*<sup><i>sgRNAx2</i></sup>"
+                    )
+                ) +
+                scale_fill_manual(values = alpha(c("#00000000", "#00000000"), 0))
+        }
     }
-  }
 
-  return(p + ggtitle(gene))
+    return(p + ggtitle(gene))
 }
 
 # Wrapper function for RNAi-specific jitter plots (for backward compatibility)
 jitter_plot_fun_rnai <- function(srt, gene, celltypes, summary_stats, conditions) {
-  return(jitter_plot_fun(srt, gene, celltypes, summary_stats, "split", conditions, use_rnai_colors = TRUE))
+    return(jitter_plot_fun(srt, gene, celltypes, summary_stats, "split", conditions, use_rnai_colors = TRUE))
 }
 
-vln_gene_by_region <- function(obj, gene, slot = "data") {
-  df <- FetchData(obj, vars = c(gene, "region_prediction", "perturbation"), slot = slot)
-  names(df)[1] <- "expr"
+vln_gene_by_region <- function(obj, gene, slot = "data", condition_filter = "ctrl", celltypes = NULL) {
+    df <- FetchData(obj, vars = c(gene, "region_prediction", "perturbation", "celltype_manual"), slot = slot)
+    names(df)[1] <- "expr"
 
-  df <- df[df$perturbation == "ctrl" &
-             !is.na(df$region_prediction) &
-             df$region_prediction != "region prediction not available", ]
+    # Filter out NA and unavailable regions
+    df <- df[!is.na(df$region_prediction) &
+        df$region_prediction != "region prediction not available", ]
 
-  levs <- unique(df$region_prediction)
-  if (all(grepl("^R\\d+$", levs))) {
-    levs <- levs[order(as.integer(sub("^R", "", levs)))]
-  } else {
-    levs <- sort(levs)
-  }
-  df$region_prediction <- factor(df$region_prediction, levels = levs)
+    # Filter by celltype if specified
+    if (!is.null(celltypes) && length(celltypes) > 0) {
+        df <- df[df$celltype_manual %in% celltypes, ]
+    }
 
-  strong_colors <- c(
-    "R1" = "#D55E00",
-    "R2" = "#E69F00",
-    "R3" = "#009E73",
-    "R4" = "#0072B2",
-    "R5" = "#CC79A7"
-  )
+    # Filter by condition
+    if (condition_filter == "ctrl") {
+        df <- df[df$perturbation == "ctrl", ]
+    } else if (condition_filter == "notch") {
+        df <- df[df$perturbation == "notch", ]
+    }
+    # If condition_filter == "both", keep all data
 
-  ggplot(df, aes(x = region_prediction, y = expr, color = region_prediction, fill = region_prediction)) +
-    geom_jitter(size = 0.65, stroke = 0.6, width = 0.2, shape = 21) +
-    geom_violin(
-      adjust = 1, trim = TRUE, color = "black", show.legend = F,
-      scale = "width", fill = "#00000000",
-      width = 0.72
-    ) +
-    theme_Publication() +
-    theme(
-      axis.title.x = element_blank(),
-      legend.position = "none"
-    ) +
-    ylab("Expression\n(logcounts)") +
-    scale_color_manual(values = strong_colors) +
-    scale_fill_manual(values = alpha(strong_colors, 0.4)) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
-    ggtitle(gene)
+    levs <- unique(df$region_prediction)
+    if (all(grepl("^R\\d+$", levs))) {
+        levs <- levs[order(as.integer(sub("^R", "", levs)))]
+    } else {
+        levs <- sort(levs)
+    }
+    df$region_prediction <- factor(df$region_prediction, levels = levs)
+
+    strong_colors <- c(
+        "R1" = "#D55E00",
+        "R2" = "#E69F00",
+        "R3" = "#009E73",
+        "R4" = "#0072B2",
+        "R5" = "#CC79A7"
+    )
+
+    if (condition_filter == "both") {
+        # Create split violin plot by condition
+        p <- ggplot(df, aes(x = region_prediction, y = expr)) +
+            geom_point(
+                mapping = aes(color = perturbation, fill = perturbation),
+                size = 0.65, stroke = 0.4, shape = 21,
+                position = position_jitterdodge()
+            ) +
+            geom_violin(
+                mapping = aes(fill = perturbation),
+                adjust = 1, trim = TRUE,
+                scale = "width", show.legend = F,
+                width = 0.75
+            ) +
+            stat_summary(
+                fun = "mean", geom = "point", aes(group = perturbation),
+                color = "black", size = 3, shape = 8, stroke = 1.2,
+                position = position_dodge2(width = 0.75)
+            ) +
+            theme_Publication_side_legend() %+%
+            theme(
+                axis.title.x = element_blank(),
+                legend.text = element_markdown(size = 15),
+                legend.title = element_text(size = 16)
+            ) +
+            ylab("Expression\n(logcounts)") +
+            guides(
+                color = guide_legend(
+                    title = "Condition",
+                    override.aes = list(size = 2, alpha = 1, shape = NULL),
+                    hjust = 0
+                ),
+                fill = "none"
+            ) +
+            scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
+            scale_color_manual(
+                values = c("ctrl" = color_mapping[1], "notch" = color_mapping[4]),
+                labels = c(
+                    ctrl = "Control",
+                    notch = "*Notch*<sup><i>sgRNAx2</i></sup>"
+                )
+            ) +
+            scale_fill_manual(values = alpha(c("#00000000", "#00000000"), 0))
+    } else {
+        # Single condition violin plot
+        p <- ggplot(df, aes(x = region_prediction, y = expr, color = region_prediction, fill = region_prediction)) +
+            geom_jitter(size = 0.65, stroke = 0.6, width = 0.2, shape = 21) +
+            geom_violin(
+                adjust = 1, trim = TRUE, color = "black", show.legend = F,
+                scale = "width", fill = "#00000000",
+                width = 0.72
+            ) +
+            stat_summary(
+                fun = "mean", geom = "point",
+                color = "black", size = 3, shape = 8, stroke = 1.2
+            ) +
+            theme_Publication() +
+            theme(
+                axis.title.x = element_blank(),
+                legend.position = "none"
+            ) +
+            ylab("Expression\n(logcounts)") +
+            scale_color_manual(values = strong_colors) +
+            scale_fill_manual(values = alpha(strong_colors, 0.4)) +
+            scale_y_continuous(expand = expansion(mult = c(0, 0.08)))
+    }
+
+    # Create title with condition information
+    title_text <- if (condition_filter == "both") {
+        paste0(gene, " - Both Conditions")
+    } else if (condition_filter == "ctrl") {
+        paste0(gene, " - Control")
+    } else {
+        paste0(gene, " - Notch")
+    }
+
+    return(p + ggtitle(title_text))
 }
 
 ui <- dashboardPage(
@@ -482,96 +558,90 @@ ui <- dashboardPage(
         tabItems(
             tabItem(
                 tabName = "about",
+                h4(
+                    "Autoinhibitory feedback preserves intestinal stem cell maintenance and fate commitment",
+                    align = "center",
+                    style = "width: 80%; margin: 0 auto; font-weight: bold; font-style: italic;"
+                ),
+                div(style = "margin-bottom: 10px;"),
 
-            h4(
-                "Autoinhibitory feedback preserves intestinal stem cell maintenance and fate commitment",
-                align = "center",
-                style = "width: 80%; margin: 0 auto; font-weight: bold; font-style: italic;"
+                # Authors (numbers = affiliations; *, †, # as in the Word doc)
+                h5(
+                    HTML(paste0(
+                        "Siamak Redhai<sup>1,2,3</sup><sup>*</sup><sup>#</sup>, ",
+                        "Nick Hirschmüller<sup>5</sup><sup>*</sup><sup></sup>, ",
+                        "Tianyu Wang<sup>1,2,3</sup>, ",
+                        "Tyler Jackson<sup>7</sup>, ",
+                        "Stefan Peidli<sup>5</sup>, ",
+                        "Erica Valentini<sup>1,2,3</sup>, ",
+                        "Shivohum Bahuguna<sup>1,2,3</sup>, ",
+                        "Svenja Leible<sup>1,2,3</sup>, ",
+                        "Sarina Möller<sup>1,2</sup>, ",
+                        "Christina Ko<sup>8</sup>, ",
+                        "Michaela Holzem<sup>1,2,3</sup>, ",
+                        "Sviatoslav Kharuk<sup>5,6</sup>, ",
+                        "Lea Bräckow<sup>1,3</sup>, ",
+                        "Fillip Port<sup>1,2,3</sup>, ",
+                        "David Ibberson<sup>4</sup>, ",
+                        "Hongjie Li<sup>7</sup>, ",
+                        "Wolfgang Huber<sup>5</sup><sup>#</sup>, ",
+                        "Michael Boutros<sup>1,2,3</sup><sup>#</sup>"
+                    )),
+                    align = "center",
+                    style = "max-width: 1000px; margin: 0 auto; color: #555;"
+                ),
+                div(style = "height: 6px;"),
+
+                # Footnotes (centered)
+                h6(
+                    HTML(paste0(
+                        "<em>*</em> Contributed equally",
+                        "<br><strong>#</strong> Corresponding authors: ",
+                        "<a href='mailto:siamak.redhai@dkfz.de'>siamak.redhai@dkfz.de</a>, ",
+                        "<a href='mailto:wolfgang.huber@embl.org'>wolfgang.huber@embl.org</a>, ",
+                        "<a href='mailto:m.boutros@dkfz.de'>m.boutros@dkfz.de</a>"
+                    )),
+                    align = "center",
+                    style = "width: 90%; margin: 0 auto; color: #666;"
+                ),
+                div(style = "height: 8px;"),
+
+                # Affiliations (2 columns, 4 affiliations each)
+                div(
+                    HTML(paste0(
+                        "<div style='max-width: 920px; margin: 0 auto; color:#444; font-size: 0.9em; ",
+                        "display: flex; justify-content: space-between; gap: 20px;'>",
+                        "<div style='flex: 1;'>",
+                        "<p style='margin: 3px 0;'><sup>1</sup> German Cancer Research Center (DKFZ), Division Signaling and Functional Genomics, ",
+                        "Im Neuenheimer Feld 580, 69120 Heidelberg, Germany</p>",
+                        "<p style='margin: 3px 0;'><sup>2</sup> Heidelberg University, Institute of Human Genetics, Medical Faculty Heidelberg, ",
+                        "Im Neuenheimer Feld 366, 69120 Heidelberg, Germany</p>",
+                        "<p style='margin: 3px 0;'><sup>3</sup> Heidelberg University, Department of Cell and Molecular Biology, Medical Faculty Mannheim ",
+                        "&amp; BioQuant, Im Neuenheimer Feld 267, 69120 Heidelberg, Germany</p>",
+                        "<p style='margin: 3px 0;'><sup>4</sup> CellNetworks Core Technology Platform (CCTP), Deep Sequencing Labor, ",
+                        "Im Neuenheimer Feld 267, 69120 Heidelberg, Germany</p>",
+                        "</div>",
+                        "<div style='flex: 1;'>",
+                        "<p style='margin: 3px 0;'><sup>5</sup> European Molecular Biology Laboratory (EMBL), Meyerhofstraße 1, 69117 Heidelberg, Germany</p>",
+                        "<p style='margin: 3px 0;'><sup>6</sup> Department of Biochemistry and Biotechnology, Vasyl Stefanyk Precarpathian National University, ",
+                        "Ivano-Frankivsk, Ukraine</p>",
+                        "<p style='margin: 3px 0;'><sup>7</sup> Huffington Center on Aging &amp; Department of Molecular and Human Genetics, ",
+                        "Baylor College of Medicine, Houston, TX 77030, USA</p>",
+                        "<p style='margin: 3px 0;'><sup>8</sup> Rice University, BioSciences Department, Houston, TX 77030, USA</p>",
+                        "</div>",
+                        "</div>"
+                    )),
+                    align = "center"
+                ),
+                div(style = "margin-bottom: 30px;"),
+                h3("Abstract", style = "font-weight: bold"),
+                p("Intestinal stem cells (ISCs) continuously renew the gut epithelium by producing specialized cell types, yet the mechanisms that couple ISC renewal with lineage commitment remain poorly characterized. Here, we identify a self-limiting transcriptional program, mediated by the zinc-finger transcription factor *Chronophage* (*Cph*), that promotes both ISC maintenance and differentiation into enteroendocrine (EE) cells in the *Drosophila* midgut. *Cph* expression is transiently induced by the proneural factor *scute* at the onset of ISC-to-EE specification. Genetic and single-cell transcriptomic approaches revealed that *Cph* is required to reprogram ISCs and sustain normal lifespan. Cph binds to genes involved in proliferation and differentiation, and directly represses its own expression. This autoinhibitory feedback safeguards ISCs from accumulating autophagosomes and undergoing cell death, thus preserving ISC function. Our findings uncover a key regulatory mechanism that balances stem cell maintenance and differentiation, highlighting principles relevant to regenerating tissues."),
+                p(
+                    "This Shiny App allows users to interactively explore the datasets accompanying the publication. ",
+                    "The source code for the app can be found on ",
+                    a("GitHub", href = "https://github.com/nickhir/Chronophage/tree/main/ShinyApp"), "."
+                )
             ),
-
-            div(style = "margin-bottom: 10px;"),
-
-            # Authors (numbers = affiliations; *, †, # as in the Word doc)
-            h5(
-                HTML(paste0(
-                "Siamak Redhai<sup>1,2,3</sup><sup>*</sup><sup>#</sup>, ",
-                "Nick Hirschmüller<sup>5</sup><sup>*</sup><sup></sup>, ",
-                "Tianyu Wang<sup>1,2,3</sup>, ",
-                "Tyler Jackson<sup>6</sup>, ",
-                "Stefan Peidli<sup>5</sup>, ",
-                "Erica Valentini<sup>1,2,3</sup>, ",
-                "Shivohum Bahuguna<sup>1,2,3</sup>, ",
-                "Svenja Leible<sup>1,2,3</sup>, ",
-                "Sarina Möller<sup>1,2</sup>, ",
-                "Christina Ko<sup>8</sup>, ",
-                "Michaela Holzem<sup>1,2,3</sup>, ",
-                "Sviatoslav Kharuk<sup>5,6</sup>, ",
-                "Lea Bräckow<sup>1,3</sup>, ",
-                "Fillip Port<sup>1,2,3</sup>, ",
-                "David Ibberson<sup>4</sup>, ",
-                "Hongjie Li<sup>7</sup>, ",
-                "Wolfgang Huber<sup>5</sup><sup>#</sup>, ",
-                "Michael Boutros<sup>1,2,3</sup><sup>#</sup>"
-                )),
-                align = "center",
-                style = "max-width: 1000px; margin: 0 auto; color: #555;"
-            ),
-
-            div(style = "height: 6px;"),
-
-            # Footnotes (centered)
-            h6(
-                HTML(paste0(
-                "<em>*</em> Contributed equally",
-                "<br><strong>#</strong> Corresponding authors: ",
-                "<a href='mailto:siamak.redhai@dkfz.de'>siamak.redhai@dkfz.de</a>, ",
-                "<a href='mailto:wolfgang.huber@embl.org'>wolfgang.huber@embl.org</a>, ",
-                "<a href='mailto:m.boutros@dkfz.de'>m.boutros@dkfz.de</a>"
-                )),
-                align = "center",
-                style = "width: 90%; margin: 0 auto; color: #666;"
-            ),
-
-            div(style = "height: 8px;"),
-
-            # Affiliations (2 columns, 4 affiliations each)
-            div(
-                HTML(paste0(
-                "<div style='max-width: 920px; margin: 0 auto; color:#444; font-size: 0.9em; ",
-                "display: flex; justify-content: space-between; gap: 20px;'>",
-                "<div style='flex: 1;'>",
-                "<p style='margin: 3px 0;'><sup>1</sup> German Cancer Research Center (DKFZ), Division Signaling and Functional Genomics, ",
-                "Im Neuenheimer Feld 580, 69120 Heidelberg, Germany</p>",
-                "<p style='margin: 3px 0;'><sup>2</sup> Heidelberg University, Institute of Human Genetics, Medical Faculty Heidelberg, ",
-                "Im Neuenheimer Feld 366, 69120 Heidelberg, Germany</p>",
-                "<p style='margin: 3px 0;'><sup>3</sup> Heidelberg University, Department of Cell and Molecular Biology, Medical Faculty Mannheim ",
-                "&amp; BioQuant, Im Neuenheimer Feld 267, 69120 Heidelberg, Germany</p>",
-                "<p style='margin: 3px 0;'><sup>4</sup> CellNetworks Core Technology Platform (CCTP), Deep Sequencing Labor, ",
-                "Im Neuenheimer Feld 267, 69120 Heidelberg, Germany</p>",
-                "</div>",
-                "<div style='flex: 1;'>",
-                "<p style='margin: 3px 0;'><sup>5</sup> European Molecular Biology Laboratory (EMBL), Meyerhofstraße 1, 69117 Heidelberg, Germany</p>",
-                "<p style='margin: 3px 0;'><sup>6</sup> Department of Biochemistry and Biotechnology, Vasyl Stefanyk Precarpathian National University, ",
-                "Ivano-Frankivsk, Ukraine</p>",
-                "<p style='margin: 3px 0;'><sup>7</sup> Huffington Center on Aging &amp; Department of Molecular and Human Genetics, ",
-                "Baylor College of Medicine, Houston, TX 77030, USA</p>",
-                "<p style='margin: 3px 0;'><sup>8</sup> Rice University, BioSciences Department, Houston, TX 77030, USA</p>",
-                "</div>",
-                "</div>"
-                )),
-                align = "center"
-            ),
-
-            div(style = "margin-bottom: 30px;"),
-
-            h3("Abstract", style = "font-weight: bold"),
-            p("Intestinal stem cells (ISCs) continuously renew the gut epithelium by producing specialized cell types, yet the mechanisms that couple ISC renewal with lineage commitment remain poorly characterized. Here, we identify a self-limiting transcriptional program, mediated by the zinc-finger transcription factor *Chronophage* (*Cph*), that promotes both ISC maintenance and differentiation into enteroendocrine (EE) cells in the *Drosophila* midgut. *Cph* expression is transiently induced by the proneural factor *scute* at the onset of ISC-to-EE specification. Genetic and single-cell transcriptomic approaches revealed that *Cph* is required to reprogram ISCs and sustain normal lifespan. Cph binds to genes involved in proliferation and differentiation, and directly represses its own expression. This autoinhibitory feedback safeguards ISCs from accumulating autophagosomes and undergoing cell death, thus preserving ISC function. Our findings uncover a key regulatory mechanism that balances stem cell maintenance and differentiation, highlighting principles relevant to regenerating tissues."),
-            p(
-                "This Shiny App allows users to interactively explore the datasets accompanying the publication. ",
-                "The source code for the app can be found on ",
-                a("GitHub", href = "https://github.com/nickhir/Chronophage/tree/main/ShinyApp"), "."
-            )),
-
 
 
             ###########
@@ -929,16 +999,16 @@ ui <- dashboardPage(
                     style = "margin-top: -10px; margin-bottom: -10px; padding: 0px",
                     box(
                         title = "Gene Expression across Midgut Regions",
-                        plotOutput("regional_plot", height = 400),
+                        plotOutput("regional_plot", height = 330),
                         fluidRow(column(12,
-                            align = "right", style = "margin-top: -405px; margin-right: -200",
+                            align = "right", style = "margin-top: -335px; margin-right: -200",
                             downloadButton("download_regional_plot", label = NULL)
                         )),
                         status = "primary", solidHeader = TRUE, width = 8
                     ),
                     box(
                         title = "Settings",
-                        style = "height: 418px;",
+                        style = "height: 348px;",
                         div(
                             style = "margin-bottom: 0px",
                             selectizeInput("selected_gene_regional", "Gene name",
@@ -950,9 +1020,37 @@ ui <- dashboardPage(
                                 )
                             )
                         ),
+                        div(
+                            style = "margin-bottom: 10px; margin-top: 10px;",
+                            radioButtons("condition_regional", "Condition:",
+                                choices = list(
+                                    "Control only" = "ctrl",
+                                    "Notch only" = "notch",
+                                    "Both" = "both"
+                                ),
+                                selected = "ctrl"
+                            )
+                        ),
+                        div(
+                            style = "margin-bottom: 0px;",
+                            strong("Filter by celltype:"),
+                            div(
+                                style = "column-count: 3; margin-top: 5px; margin-bottom: 5px;",
+                                checkboxGroupInput("celltypes_regional", NULL,
+                                    choices = c(
+                                        "ISC", "EB", "EEP", "dEC", "daEC", "aEC",
+                                        "mEC", "Copper", "LFC", "pEC", "EE", "MT"
+                                    ),
+                                    selected = c(
+                                        "ISC", "EB", "EEP", "dEC", "daEC", "aEC",
+                                        "mEC", "Copper", "LFC", "pEC", "EE", "MT"
+                                    )
+                                )
+                            )
+                        ),
                         actionButton("go_regional", "Update Plot!",
                             icon = icon("fa-solid fa-gears", class = "fa-lg"),
-                            style = "font-weight: bold; background-color: #14E821; margin-top: 20px;"
+                            style = "font-weight: bold; background-color: #14E821; margin-top: 5px;"
                         ),
                         status = "info", solidHeader = TRUE, width = 4
                     )
@@ -1009,9 +1107,6 @@ ui <- dashboardPage(
 )
 
 
-
-
-
 ##########
 # SERVER #
 ##########
@@ -1057,7 +1152,7 @@ server <- function(input, output, session) {
     output$feature_plot_rnai <- renderPlot(rnai_plots$feature)
     output$vln_expression_rnai <- renderPlot(rnai_plots$violin)
 
-    output$regional_plot <- renderPlot(vln_gene_by_region(seurat, "esg"))
+    output$regional_plot <- renderPlot(vln_gene_by_region(seurat, "esg", condition_filter = "ctrl", celltypes = c("ISC", "EB", "EEP", "dEC", "daEC", "aEC", "mEC", "Copper", "LFC", "pEC", "EE", "MT")))
 
     ##################
     # NOTCH KO PLOTS #
@@ -1182,17 +1277,19 @@ server <- function(input, output, session) {
     #########################
     observeEvent(input$go_regional, {
         gene_name_regional <- map_gene_name(input$selected_gene_regional, feature_mapping)
+        condition_regional <- input$condition_regional
+        celltypes_regional <- input$celltypes_regional
 
         output$regional_plot <- renderPlot(
-            vln_gene_by_region(seurat, gene_name_regional)
-        ) %>% bindCache(gene_name_regional, cache = "session")
+            vln_gene_by_region(seurat, gene_name_regional, condition_filter = condition_regional, celltypes = celltypes_regional)
+        ) %>% bindCache(gene_name_regional, condition_regional, celltypes_regional, cache = "session")
     })
 
     #################
     # DownloadCalls #
     #################
     # Helper function to create download handlers
-    create_download_handler <- function(plot_func, filename_prefix, file_ext = ".pdf", use_ggsave = FALSE, use_rnai_inputs = FALSE) {
+    create_download_handler <- function(plot_func, filename_prefix, file_ext = ".pdf", use_ggsave = FALSE, use_rnai_inputs = FALSE, use_regional_inputs = FALSE) {
         downloadHandler(
             filename = function() {
                 # Use context-aware input selection based on use_rnai_inputs flag
@@ -1207,6 +1304,19 @@ server <- function(input, output, session) {
                     } else {
                         "UMAP"
                     }
+                    paste0(filename_prefix, "_", if (grepl("annotation", filename_prefix)) dim_red else gene, file_ext)
+                } else if (use_regional_inputs) {
+                    gene <- if (exists("input") && !is.null(input$selected_gene_regional)) {
+                        map_gene_name(input$selected_gene_regional, feature_mapping)
+                    } else {
+                        "gene"
+                    }
+                    condition <- if (exists("input") && !is.null(input$condition_regional)) {
+                        input$condition_regional
+                    } else {
+                        "ctrl"
+                    }
+                    paste0(filename_prefix, "_", gene, "_", condition, file_ext)
                 } else {
                     gene <- if (exists("input") && !is.null(input$selected_gene)) {
                         map_gene_name(input$selected_gene, feature_mapping)
@@ -1218,9 +1328,8 @@ server <- function(input, output, session) {
                     } else {
                         "UMAP"
                     }
+                    paste0(filename_prefix, "_", if (grepl("annotation", filename_prefix)) dim_red else gene, file_ext)
                 }
-
-                paste0(filename_prefix, "_", if (grepl("annotation", filename_prefix)) dim_red else gene, file_ext)
             },
             content = function(file) {
                 p <- plot_func()
@@ -1242,43 +1351,63 @@ server <- function(input, output, session) {
         if (!split_condition) {
             # Combined condition downloads
             output$download_annotation_plot <- create_download_handler(
-                function() annotation_plot_fun(seurat, input$dim_reduction, "combined"),
+                function() {
+                    annotation_plot_fun(seurat, input$dim_reduction, "combined") %>%
+                        apply_scale_transform("scale_y_reverse")
+                },
                 "annotation"
             )
 
             output$download_feature_plot <- create_download_handler(
-                function() feature_plot_fun(seurat, gene_name, input$dim_reduction, input$order_cells, "combined"),
+                function() {
+                    feature_plot_fun(seurat, gene_name, input$dim_reduction, input$order_cells, "combined") %>%
+                        apply_scale_transform("scale_y_reverse")
+                },
                 "feature_expression"
             )
 
             output$download_vln_expression <- create_download_handler(
                 function() jitter_plot_fun(seurat, gene_name, input$celltypes_vln_plot, input$summary_stats, "combined"),
-                "celltype_expression", use_ggsave = TRUE
+                "celltype_expression",
+                use_ggsave = TRUE
             )
         } else {
             # Split condition downloads
             output$download_annotation_plot <- create_download_handler(
-                function() annotation_plot_fun(seurat, input$dim_reduction, "ctrl"),
+                function() {
+                    annotation_plot_fun(seurat, input$dim_reduction, "ctrl") %>%
+                        apply_scale_transform("scale_y_reverse")
+                },
                 "annotation"
             )
 
             output$download_feature_plot <- create_download_handler(
-                function() feature_plot_fun(seurat, gene_name, input$dim_reduction, input$order_cells, "ctrl"),
+                function() {
+                    feature_plot_fun(seurat, gene_name, input$dim_reduction, input$order_cells, "ctrl") %>%
+                        apply_scale_transform("scale_y_reverse")
+                },
                 "feature_expression"
             )
 
             output$download_vln_expression <- create_download_handler(
                 function() jitter_plot_fun(seurat, gene_name, input$celltypes_vln_plot, input$summary_stats, "split"),
-                "celltype_expression", use_ggsave = TRUE
+                "celltype_expression",
+                use_ggsave = TRUE
             )
 
             output$download_annotation_plot_split <- create_download_handler(
-                function() annotation_plot_fun(seurat, input$dim_reduction, "notch"),
+                function() {
+                    annotation_plot_fun(seurat, input$dim_reduction, "notch") %>%
+                        apply_scale_transform("scale_y_reverse")
+                },
                 "annotation_notch"
             )
 
             output$download_feature_plot_split <- create_download_handler(
-                function() feature_plot_fun(seurat, gene_name, input$dim_reduction, input$order_cells, "notch"),
+                function() {
+                    feature_plot_fun(seurat, gene_name, input$dim_reduction, input$order_cells, "notch") %>%
+                        apply_scale_transform("scale_y_reverse")
+                },
                 "feature_expression_notch"
             )
         }
@@ -1290,15 +1419,21 @@ server <- function(input, output, session) {
 
         # Combined RNAi dataset downloads
         output$download_annotation_plot_rnai <- create_download_handler(
-            function() annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "combined") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "annotation_rnai", use_rnai_inputs = TRUE
+            function() {
+                annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "combined") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "annotation_rnai",
+            use_rnai_inputs = TRUE
         )
 
         output$download_feature_plot_rnai <- create_download_handler(
-            function() feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "combined") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "feature_expression_rnai", use_rnai_inputs = TRUE
+            function() {
+                feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "combined") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "feature_expression_rnai",
+            use_rnai_inputs = TRUE
         )
 
         output$download_vln_expression_rnai <- create_download_handler(
@@ -1309,70 +1444,99 @@ server <- function(input, output, session) {
                     jitter_plot_fun(seurat_RNAi, gene_name_rnai, input$celltypes_vln_plot_rnai, input$summary_stats_rnai, "combined")
                 }
             },
-            "celltype_expression_rnai", use_ggsave = TRUE, use_rnai_inputs = TRUE
+            "celltype_expression_rnai",
+            use_ggsave = TRUE, use_rnai_inputs = TRUE
         )
 
         # Condition-specific downloads
         # Control condition
         output$download_annotation_plot_ctrl_rnai <- create_download_handler(
-            function() annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "ctrl") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "annotation_ctrl_rnai", use_rnai_inputs = TRUE
+            function() {
+                annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "ctrl") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "annotation_ctrl_rnai",
+            use_rnai_inputs = TRUE
         )
 
         output$download_feature_plot_ctrl_rnai <- create_download_handler(
-            function() feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "ctrl") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "feature_expression_ctrl_rnai", use_rnai_inputs = TRUE
+            function() {
+                feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "ctrl") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "feature_expression_ctrl_rnai",
+            use_rnai_inputs = TRUE
         )
 
         # NotchRNAi condition
         output$download_annotation_plot_NotchRNAi_rnai <- create_download_handler(
-            function() annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "NotchRNAi") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "annotation_NotchRNAi_rnai", use_rnai_inputs = TRUE
+            function() {
+                annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "NotchRNAi") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "annotation_NotchRNAi_rnai",
+            use_rnai_inputs = TRUE
         )
 
         output$download_feature_plot_NotchRNAi_rnai <- create_download_handler(
-            function() feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "NotchRNAi") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "feature_expression_NotchRNAi_rnai", use_rnai_inputs = TRUE
+            function() {
+                feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "NotchRNAi") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "feature_expression_NotchRNAi_rnai",
+            use_rnai_inputs = TRUE
         )
 
         # NotchCphRNAi condition
         output$download_annotation_plot_NotchCphRNAi_rnai <- create_download_handler(
-            function() annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "NotchCphRNAi") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "annotation_NotchCphRNAi_rnai", use_rnai_inputs = TRUE
+            function() {
+                annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "NotchCphRNAi") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "annotation_NotchCphRNAi_rnai",
+            use_rnai_inputs = TRUE
         )
 
         output$download_feature_plot_NotchCphRNAi_rnai <- create_download_handler(
-            function() feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "NotchCphRNAi") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "feature_expression_NotchCphRNAi_rnai", use_rnai_inputs = TRUE
+            function() {
+                feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "NotchCphRNAi") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "feature_expression_NotchCphRNAi_rnai",
+            use_rnai_inputs = TRUE
         )
 
         # CphUp condition
         output$download_annotation_plot_CphUp_rnai <- create_download_handler(
-            function() annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "CphUp") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "annotation_CphUp_rnai", use_rnai_inputs = TRUE
+            function() {
+                annotation_plot_fun(seurat_RNAi, input$dim_reduction_rnai, "CphUp") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "annotation_CphUp_rnai",
+            use_rnai_inputs = TRUE
         )
 
         output$download_feature_plot_CphUp_rnai <- create_download_handler(
-            function() feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "CphUp") %>%
-                apply_scale_transform("scale_x_reverse"),
-            "feature_expression_CphUp_rnai", use_rnai_inputs = TRUE
+            function() {
+                feature_plot_fun(seurat_RNAi, gene_name_rnai, input$dim_reduction_rnai, input$order_cells_rnai, "CphUp") %>%
+                    apply_scale_transform("scale_x_reverse")
+            },
+            "feature_expression_CphUp_rnai",
+            use_rnai_inputs = TRUE
         )
     })
 
     # Regional expression download handler
     observe({
         gene_name_regional <- map_gene_name(input$selected_gene_regional, feature_mapping)
+        condition_regional <- input$condition_regional
+        celltypes_regional <- input$celltypes_regional
 
         output$download_regional_plot <- create_download_handler(
-            function() vln_gene_by_region(seurat, gene_name_regional),
-            "regional_expression", use_ggsave = TRUE
+            function() vln_gene_by_region(seurat, gene_name_regional, condition_filter = condition_regional, celltypes = celltypes_regional),
+            "regional_expression",
+            use_ggsave = TRUE,
+            use_regional_inputs = TRUE
         )
     })
 }
